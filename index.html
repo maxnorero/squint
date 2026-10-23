@@ -225,10 +225,10 @@ input.track-value::-moz-range-track{background:linear-gradient(90deg,#111,#f2f2f
           <div class="scale" aria-hidden="true"><span>Detailed</span><span>Big shapes</span></div>
         </div>
         <div class="field">
-          <div class="field-top"><label for="simK">Colors</label><output id="simKOut"></output></div>
-          <input type="range" id="simK" data-key="simplify.k" min="2" max="16" step="1">
+          <div class="field-top"><label for="simK">Limit colors</label><output id="simKOut"></output></div>
+          <input type="range" id="simK" data-key="simplify.colors" min="2" max="17" step="1">
+          <div class="scale" aria-hidden="true"><span>2 colors</span><span>No limit</span></div>
         </div>
-        <label class="switch" for="simOwn"><span>Each shape keeps its own color</span><input type="checkbox" id="simOwn" data-key="simplify.own"></label>
         <label class="switch" for="simEdges"><span>Outline the shapes</span><input type="checkbox" id="simEdges" data-key="simplify.edges"></label>
         <div class="propbar" id="simBar" aria-hidden="true"></div>
         <div class="swatches" id="simSw"></div>
@@ -325,7 +325,7 @@ const $ = s => document.querySelector(s);
 const DEFAULTS = {
   mode: 'colors',
   colors: { k: 6, sort: 'amount', flat: false },
-  simplify: { amount: 5, k: 8, edges: false, own: false },
+  simplify: { amount: 5, colors: 17, edges: false },
   values: { gray: false, steps: 3, thr: null, shift: 0, smooth: 2 },
   temp: { ref: 'neutral', show: 'both', sens: 5 },
   trace: { bg: 'camera', src: 'view', opacity: 55, grid: false, flip: false }
@@ -466,20 +466,6 @@ function assign(lab, n, C, k) {
   }
   return labels;
 }
-function majority(labels, w, h, k, r) {
-  const out = new Uint8Array(labels.length), cnt = new Uint16Array(k);
-  for (let y = 0; y < h; y++) {
-    const y0 = Math.max(0, y - r), y1 = Math.min(h - 1, y + r);
-    for (let x = 0; x < w; x++) {
-      const x0 = Math.max(0, x - r), x1 = Math.min(w - 1, x + r);
-      let best = labels[y * w + x], bc = 0;
-      for (let yy = y0; yy <= y1; yy++) for (let xx = x0; xx <= x1; xx++) { const l = labels[yy * w + xx], c = ++cnt[l]; if (c > bc) { bc = c; best = l; } }
-      out[y * w + x] = best;
-      for (let yy = y0; yy <= y1; yy++) for (let xx = x0; xx <= x1; xx++) cnt[labels[yy * w + xx]] = 0;
-    }
-  }
-  return out;
-}
 function finishPalette(C, k, labels, n) {
   const counts = new Uint32Array(k);
   for (let i = 0; i < n; i++) counts[labels[i]]++;
@@ -494,7 +480,7 @@ function finishPalette(C, k, labels, n) {
 
 /* ---------- image + caches ---------- */
 let img = null, outData = null;
-const cache = { blur: new Map(), pal: null, simp: null, kuw: null, val: null, temp: null };
+const cache = { blur: new Map(), pal: null, simp: null, reg: null, val: null, temp: null };
 const view = $('#view'), vctx = view.getContext('2d', { willReadFrequently: true });
 
 function getBlur(r) {
@@ -546,84 +532,97 @@ function kuwahara(src, w, h, r) {
   }
   return out;
 }
-// Connected shapes: pixels that touch (4-way) and share a color group.
-function components(labels, w, h) {
-  const n = w * h, comp = new Int32Array(n).fill(-1), stack = new Int32Array(n), order = new Int32Array(n), start = [], sizes = [];
-  let pos = 0, id = 0;
-  for (let i = 0; i < n; i++) {
-    if (comp[i] >= 0) continue;
-    const l = labels[i]; let sp = 0; stack[sp++] = i; comp[i] = id; start.push(pos);
-    while (sp) {
-      const p = stack[--sp], x = p % w; order[pos++] = p;
-      if (x > 0 && comp[p - 1] < 0 && labels[p - 1] === l) { comp[p - 1] = id; stack[sp++] = p - 1; }
-      if (x < w - 1 && comp[p + 1] < 0 && labels[p + 1] === l) { comp[p + 1] = id; stack[sp++] = p + 1; }
-      if (p >= w && comp[p - w] < 0 && labels[p - w] === l) { comp[p - w] = id; stack[sp++] = p - w; }
-      if (p < n - w && comp[p + w] < 0 && labels[p + w] === l) { comp[p + w] = id; stack[sp++] = p + w; }
-    }
-    sizes.push(pos - start[id]); id++;
-  }
-  return { comp, order, start, sizes, count: id };
-}
-// Fold every shape smaller than minArea into a neighbor, preferring a similar color it shares a long border with.
-function mergeSmall(labels, w, h, k, C, minArea) {
-  const n = w * h, tally = new Uint32Array(k);
-  for (let pass = 0; pass < 4; pass++) {
-    const cc = components(labels, w, h), small = [];
-    for (let c = 0; c < cc.count; c++) if (cc.sizes[c] < minArea) small.push(c);
-    if (!small.length) break;
-    small.sort((a, b) => cc.sizes[a] - cc.sizes[b]);
-    for (const c of small) {
-      const s0 = cc.start[c], s1 = s0 + cc.sizes[c], own = labels[cc.order[s0]], touched = [];
-      for (let j = s0; j < s1; j++) {
-        const p = cc.order[j], x = p % w;
-        const nb = [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, p >= w ? p - w : -1, p < n - w ? p + w : -1];
-        for (const q of nb) {
-          if (q < 0 || cc.comp[q] === c) continue;
-          const l = labels[q]; if (l === own) continue;
-          if (!tally[l]) touched.push(l); tally[l]++;
-        }
-      }
-      if (!touched.length) continue;
-      let maxT = 0; for (const l of touched) if (tally[l] > maxT) maxT = tally[l];
-      let best = touched[0], bs = Infinity;
-      for (const l of touched) {
-        const x = C[own * 3] - C[l * 3], y = C[own * 3 + 1] - C[l * 3 + 1], z = C[own * 3 + 2] - C[l * 3 + 2];
-        const score = (x * x + y * y + z * z + 25) * (maxT / tally[l]);
-        if (score < bs) { bs = score; best = l; }
-      }
-      for (const l of touched) tally[l] = 0;
-      for (let j = s0; j < s1; j++) labels[cc.order[j]] = best;
+// Graph-based segmentation (Felzenszwalb–Huttenlocher): neighboring pixels join into one shape while
+// their difference stays small next to the variation already inside each shape. Bigger K = bigger shapes.
+function segment(lab, w, h, K, minSize) {
+  const n = w * h, SCALE = 4, MAXB = 1024, OFF = [1, w, w + 1, w - 1];
+  const wq = new Uint16Array(n * 4), counts = new Uint32Array(MAXB + 1);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const p = y * w + x;
+    for (let d = 0; d < 4; d++) {
+      const ok = d === 0 ? x < w - 1 : d === 1 ? y < h - 1 : d === 2 ? x < w - 1 && y < h - 1 : x > 0 && y < h - 1;
+      const e = p * 4 + d;
+      if (!ok) { wq[e] = MAXB; continue; }
+      const q = p + OFF[d], a = lab[p * 3] - lab[q * 3], b = lab[p * 3 + 1] - lab[q * 3 + 1], c = lab[p * 3 + 2] - lab[q * 3 + 2];
+      const bin = Math.min(MAXB - 1, Math.round(Math.sqrt(a * a + b * b + c * c) * SCALE));
+      wq[e] = bin; counts[bin]++;
     }
   }
-  return labels;
+  // counting sort of edges by weight
+  const startAt = new Uint32Array(MAXB); let total = 0;
+  for (let b = 0; b < MAXB; b++) { startAt[b] = total; total += counts[b]; }
+  const order = new Uint32Array(total);
+  for (let e = 0; e < n * 4; e++) { const b = wq[e]; if (b < MAXB) order[startAt[b]++] = e; }
+  const parent = new Int32Array(n), size = new Uint32Array(n).fill(1), thr = new Float32Array(n).fill(K);
+  for (let i = 0; i < n; i++) parent[i] = i;
+  const find = i => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+  const join = (a, b) => { if (size[a] < size[b]) { const t = a; a = b; b = t; } parent[b] = a; size[a] += size[b]; return a; };
+  for (let j = 0; j < total; j++) {
+    const e = order[j], p = e >> 2, a = find(p), b = find(p + OFF[e & 3]);
+    if (a === b) continue;
+    const wv = wq[e] / SCALE;
+    if (wv <= thr[a] && wv <= thr[b]) { const r = join(a, b); thr[r] = wv + K / size[r]; }
+  }
+  // fold shapes that are still too small into their most similar neighbor
+  for (let j = 0; j < total; j++) {
+    const e = order[j], p = e >> 2, a = find(p), b = find(p + OFF[e & 3]);
+    if (a !== b && (size[a] < minSize || size[b] < minSize)) join(a, b);
+  }
+  const rid = new Int32Array(n), map = new Int32Array(n).fill(-1); let count = 0;
+  for (let i = 0; i < n; i++) { const r = find(i); if (map[r] < 0) map[r] = count++; rid[i] = map[r]; }
+  return { rid, count };
 }
-function getSmoothed(a) {
-  const r = Math.max(1, Math.round((1 + a * 0.8) * img.scale)), passes = a > 3 ? 2 : 1, key = r + ':' + passes;
-  if (cache.kuw && cache.kuw.key === key) return cache.kuw;
+// Each pixel joins the shape most common among its 3×3 neighbors, which rounds off jagged shape edges.
+function smoothEdges(rid, w, h) {
+  const out = new Int32Array(rid.length), v = new Int32Array(9);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let m = 0;
+    for (let dy = -1; dy <= 1; dy++) { const yy = y + dy < 0 ? 0 : y + dy >= h ? h - 1 : y + dy;
+      for (let dx = -1; dx <= 1; dx++) { const xx = x + dx < 0 ? 0 : x + dx >= w ? w - 1 : x + dx; v[m++] = rid[yy * w + xx]; } }
+    let best = v[4], bc = 0;
+    for (let i = 0; i < 9; i++) { let c = 0; for (let j = 0; j < 9; j++) if (v[j] === v[i]) c++; if (c > bc) { bc = c; best = v[i]; } }
+    out[y * w + x] = best;
+  }
+  return out;
+}
+// Shapes for a Simplify level. 0 = the photo itself; each level up smooths a little more and grows the shapes.
+function getRegions(a) {
+  if (cache.reg && cache.reg.a === a) return cache.reg;
+  const { w, h, n } = img;
+  if (a === 0) { cache.reg = { a, identity: true, lab: getBlur(0).lab }; return cache.reg; }
+  const r = Math.max(1, Math.round(a * 0.5 * img.scale)), passes = a >= 6 ? 2 : 1;
   let rgba = img.rgba;
-  for (let p = 0; p < passes; p++) rgba = kuwahara(rgba, img.w, img.h, r);
-  cache.kuw = { key, rgba, lab: labArray(rgba, img.n) };
-  return cache.kuw;
-}
-function getSimplify() {
-  const { amount: a, k, own } = state.simplify, key = a + '|' + k + '|' + own;
-  if (cache.simp && cache.simp.key === key) return cache.simp;
-  const { w, h, n } = img, S = getSmoothed(a), sc2 = img.scale * img.scale;
-  const C = kmeans(S.lab, n, k, 11);
-  let labels = assign(S.lab, n, C, k);
-  // smallest shape kept, as a share of the picture: a speck at 0, about 0.6% at 10
-  const minArea = Math.round(6 * sc2 + n * Math.pow(a / 10, 2) * 0.006);
-  labels = mergeSmall(labels, w, h, k, C, minArea);
-  labels = majority(labels, w, h, k, a >= 7 ? 2 : 1);
-  labels = mergeSmall(labels, w, h, k, C, Math.min(minArea, Math.round(40 * sc2)));
-  const P = finishPalette(C, k, labels, n);
-  if (own) {
-    // each shape painted with its own average color instead of its group's
-    const cc = components(labels, w, h), sums = new Float64Array(cc.count * 3), rgb = new Uint8Array(cc.count * 3);
-    for (let i = 0; i < n; i++) { const c = cc.comp[i]; sums[c * 3] += S.lab[i * 3]; sums[c * 3 + 1] += S.lab[i * 3 + 1]; sums[c * 3 + 2] += S.lab[i * 3 + 2]; }
-    for (let c = 0; c < cc.count; c++) { const s = cc.sizes[c]; rgb.set(labToRgb(sums[c * 3] / s, sums[c * 3 + 1] / s, sums[c * 3 + 2] / s), c * 3); }
-    P.comp = cc.comp; P.compRGB = rgb;
+  for (let p = 0; p < passes; p++) rgba = kuwahara(rgba, w, h, r);
+  const sm = labArray(rgba, n);
+  const K = 45 * Math.pow(1.5, a - 1);
+  const minSize = Math.round(4 * img.scale * img.scale + n * Math.pow(a / 10, 2) * 0.004);
+  let { rid, count } = segment(sm, w, h, K, minSize);
+  for (let p = 0, np = a >= 3 ? (a >= 7 ? 2 : 1) : 0; p < np; p++) rid = smoothEdges(rid, w, h);
+  // each shape takes its own average color
+  const sums = new Float64Array(count * 3), cnt = new Uint32Array(count);
+  for (let i = 0; i < n; i++) { const c = rid[i]; cnt[c]++; sums[c * 3] += sm[i * 3]; sums[c * 3 + 1] += sm[i * 3 + 1]; sums[c * 3 + 2] += sm[i * 3 + 2]; }
+  const rlab = new Float32Array(count * 3), rrgb = new Uint8Array(count * 3);
+  for (let c = 0; c < count; c++) {
+    if (!cnt[c]) continue; // a shape the edge smoothing absorbed
+    rlab[c * 3] =sums[c * 3] / cnt[c]; rlab[c * 3 + 1] = sums[c * 3 + 1] / cnt[c]; rlab[c * 3 + 2] = sums[c * 3 + 2] / cnt[c];
+    rrgb.set(labToRgb(rlab[c * 3], rlab[c * 3 + 1], rlab[c * 3 + 2]), c * 3);
   }
+  const lab = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) { const c = rid[i] * 3; lab[i * 3] = rlab[c]; lab[i * 3 + 1] = rlab[c + 1]; lab[i * 3 + 2] = rlab[c + 2]; }
+  cache.reg = { a, identity: false, rid, count, rrgb, lab };
+  return cache.reg;
+}
+const ALL_COLORS = 17;
+function getSimplify() {
+  const { amount: a, colors } = state.simplify, key = a + '|' + colors;
+  if (cache.simp && cache.simp.key === key) return cache.simp;
+  const R = getRegions(a), n = img.n, limited = colors < ALL_COLORS, k = limited ? colors : 8;
+  // the palette: the colors you'd mix. With a color limit, every shape is repainted in its nearest one.
+  const C = kmeans(R.lab, n, k, 11);
+  const labels = assign(R.lab, n, C, k);
+  const P = finishPalette(C, k, labels, n);
+  P.limited = limited; P.identity = R.identity; P.rid = R.rid; P.rrgb = R.rrgb;
+  P.outline = limited || R.identity ? labels : R.rid;
   cache.simp = Object.assign(P, { key });
   return cache.simp;
 }
@@ -668,14 +667,17 @@ function renderColors() {
   drawSwatches($('#colSw'), $('#colBar'), list, iso, 'colors');
 }
 function renderSimplify() {
-  const P = getSimplify(), d = outData.data, L = P.labels, w = img.w, h = img.h;
-  const own = !!P.compRGB, c = own ? P.compRGB : P.crgb, ids = own ? P.comp : L;
+  const P = getSimplify(), d = outData.data, L = P.labels, O = P.outline, w = img.w, h = img.h, s = img.rgba;
+  // color source: the palette when colors are limited, the photo itself at 0, otherwise each shape's own average
+  const c = P.limited ? P.crgb : P.rrgb, ids = P.limited ? L : P.rid, photo = !P.limited && P.identity;
   const iso = ui.isolateSimplify, edges = state.simplify.edges;
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const i = y * w + x, p = i * 4, l = L[i], ci = ids[i];
-    const r = c[ci * 3], g = c[ci * 3 + 1], b = c[ci * 3 + 2];
+    const i = y * w + x, p = i * 4, l = L[i], o = O[i];
+    let r, g, b;
+    if (photo) { r = s[p]; g = s[p + 1]; b = s[p + 2]; }
+    else { const ci = ids[i] * 3; r = c[ci]; g = c[ci + 1]; b = c[ci + 2]; }
     if (iso >= 0 && l !== iso) fade(d, p, r, g, b); else { d[p] = r; d[p + 1] = g; d[p + 2] = b; }
-    if (edges && ((x < w - 1 && L[i + 1] !== l) || (y < h - 1 && L[i + w] !== l) || (x > 0 && L[i - 1] !== l) || (y > 0 && L[i - w] !== l))) { d[p] = d[p + 1] = d[p + 2] = 24; }
+    if (edges && ((x < w - 1 && O[i + 1] !== o) || (y < h - 1 && O[i + w] !== o) || (x > 0 && O[i - 1] !== o) || (y > 0 && O[i - w] !== o))) { d[p] = d[p + 1] = d[p + 2] = 24; }
     d[p + 3] = 255;
   }
   const list = P.list.slice().sort((x, y) => y.share - x.share);
@@ -809,7 +811,7 @@ function renderReadout() {
 const getK = key => key.split('.').reduce((o, k) => o[k], state);
 const setK = (key, v) => { const [a, b] = key.split('.'); state[a][b] = v; };
 const FMT = {
-  'colors.k': v => v, 'simplify.amount': v => v === 0 ? 'Off' : v + ' of 10', 'simplify.k': v => v,
+  'colors.k': v => v, 'simplify.amount': v => v === 0 ? 'Off · original photo' : v + ' of 10', 'simplify.colors': v => v >= ALL_COLORS ? 'No limit' : v,
   'values.steps': v => v === 2 ? '2 · notan' : v, 'values.shift': v => (v > 0 ? '+' : '') + v,
   'values.smooth': v => v === 0 ? 'Off' : v, 'temp.sens': v => v, 'trace.opacity': v => v + '%'
 };
@@ -834,7 +836,7 @@ function syncControls() {
 }
 function changed(key) {
   if (key === 'colors.k') ui.isolateColors = -1;
-  if (key === 'simplify.k' || key === 'simplify.amount') ui.isolateSimplify = -1;
+  if (key === 'simplify.colors' || key === 'simplify.amount') ui.isolateSimplify = -1;
   if (key && key.startsWith('trace.')) { applyTraceSettings(key); }
   syncControls(); saveSettings(); schedule();
 }
@@ -903,7 +905,7 @@ function setBadge(text) {
 function setImage(data, sample) {
   img = { w: data.width, h: data.height, n: data.width * data.height, data, rgba: data.data, sample, scale: Math.max(data.width, data.height) / MAX_EDGE };
   view.width = img.w; view.height = img.h; outData = vctx.createImageData(img.w, img.h);
-  cache.blur.clear(); cache.pal = cache.simp = cache.kuw = cache.val = cache.temp = null;
+  cache.blur.clear(); cache.pal = cache.simp = cache.reg = cache.val = cache.temp = null;
   ui.pick = null; ui.isolateColors = ui.isolateSimplify = -1; $('#marker').hidden = true;
   setBadge(); sizeFrame(); render();
 }
@@ -990,7 +992,7 @@ const tf = { x: 0, y: 0, s: 1, r: 0, baseW: 0 };
 let stream = null, wakeLock = null, locked = false;
 
 function linesImage() {
-  const P = getSimplify(), L = P.labels, w = img.w, h = img.h, id = new ImageData(w, h), d = id.data;
+  const P = getSimplify(), L = P.outline, w = img.w, h = img.h, id = new ImageData(w, h), d = id.data;
   const edge = new Uint8Array(img.n), r = Math.max(1, Math.round(img.scale * 1.5));
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const i = y * w + x, l = L[i];
