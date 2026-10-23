@@ -1,0 +1,1024 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1d1d1d">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-180.png">
+<style>
+html{background:var(--bg)}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+img{max-width:100%}
+</style>
+<title>Squint</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Squint">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: photo on a middle-gray surround, mode tabs, then controls and a color readout; two columns on wide screens.
+   The UI stays colorless (ink on gray) so it never tints how the photo's colors read. */
+:root{
+  --bg:#dddddb; --surface:#ececea; --raise:#f8f8f6; --line:#c6c6c3;
+  --fg:#1c1c1b; --muted:#5c5c59; --ink:#1c1c1b; --on-ink:#f6f6f4;
+  --stage:#777777; /* L* ≈ 50: painter's middle gray */
+  --warm:#c95a1e; --cool:#2a63c0;
+  --f-display:"Bricolage Grotesque","Avenir Next",system-ui,sans-serif;
+  --f-ui:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-data:"DM Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#1d1d1d; --surface:#272726; --raise:#333332; --line:#3e3e3c;
+    --fg:#ececea; --muted:#a4a4a0; --ink:#ececea; --on-ink:#1b1b1a;
+    --warm:#ee8a4d; --cool:#6a9cf0; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1d1d1d; --surface:#272726; --raise:#333332; --line:#3e3e3c;
+  --fg:#ececea; --muted:#a4a4a0; --ink:#ececea; --on-ink:#1b1b1a;
+  --warm:#ee8a4d; --cool:#6a9cf0; color-scheme:dark;
+}
+[hidden]{display:none!important}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:400 15px/1.45 var(--f-ui);margin:0;touch-action:manipulation;-webkit-text-size-adjust:100%}
+button,input,label{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
+
+.app{max-width:1200px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px 40px;display:grid;gap:14px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.mark{width:26px;height:26px;border-radius:7px;flex:none;background:linear-gradient(90deg,#1e1e1e 0 33.3%,#7a7a7a 33.3% 66.6%,#e6e6e6 66.6%);box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
+h1{font:800 26px/1 var(--f-display);letter-spacing:-.02em;margin:0}
+.tag{color:var(--muted);font-size:13px;white-space:nowrap}
+@media (max-width:420px){.tag{display:none}}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--line);background:var(--raise);color:var(--fg);font-weight:600;font-size:15px;white-space:nowrap;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.btn.primary{background:var(--ink);color:var(--on-ink);border-color:transparent}
+.btn.small{min-height:38px;padding:0 14px;font-size:14px}
+.btn:active{transform:translateY(1px)}
+
+.layout{display:grid;gap:14px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:900px){.layout{grid-template-columns:minmax(0,1fr) 380px;align-items:start}}
+
+.stage-col{display:grid;gap:10px;min-width:0}
+.stage{background:var(--stage);border-radius:16px;padding:12px;display:grid;place-items:center;min-height:220px}
+.frame{position:relative;line-height:0;max-width:100%}
+#view{display:block;width:100%;height:auto;box-shadow:0 2px 10px rgba(0,0,0,.25);cursor:crosshair;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.badge{position:absolute;top:8px;left:8px;font:500 11px/1 var(--f-data);letter-spacing:.06em;text-transform:uppercase;background:rgba(0,0,0,.6);color:#fff;padding:6px 8px;border-radius:6px;pointer-events:none}
+.marker{position:absolute;width:28px;height:28px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.75),inset 0 0 0 1.5px rgba(0,0,0,.75);transform:translate(-50%,-50%);pointer-events:none}
+.stage-actions{display:flex;gap:8px;flex-wrap:wrap}
+.stage-actions .btn{flex:1 1 auto}
+
+.panel{display:grid;gap:12px;min-width:0}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:4px;background:var(--surface);border:1px solid var(--line);border-radius:13px}
+.tabs button{min-height:42px;border:0;border-radius:9px;background:transparent;color:var(--muted);font-weight:600;font-size:14px}
+.tabs button[aria-selected="true"]{background:var(--ink);color:var(--on-ink)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:grid;gap:14px;min-width:0}
+.mode-head h2{font:700 21px/1.15 var(--f-display);letter-spacing:-.01em;margin:0 0 4px;text-wrap:balance}
+.mode-head p{margin:0;color:var(--muted);font-size:14px;max-width:62ch}
+
+.field{display:grid;gap:2px}
+.field-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.field-top label{font-weight:600;font-size:14px}
+.field-top output,.field-top .aux{font:500 13px var(--f-data);color:var(--muted);font-variant-numeric:tabular-nums}
+.aux-btn{border:0;background:none;padding:2px 0 2px 10px;font:600 13px var(--f-ui);color:var(--fg);text-decoration:underline;text-underline-offset:3px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:34px;background:transparent;margin:0}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:var(--line)}
+input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:var(--line)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;margin-top:-10px;border-radius:50%;background:var(--ink);border:3px solid var(--raise);box-shadow:0 1px 3px rgba(0,0,0,.35)}
+input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:var(--ink);border:3px solid var(--raise)}
+input.track-value::-webkit-slider-runnable-track{background:linear-gradient(90deg,#111,#f2f2f2)}
+input.track-value::-moz-range-track{background:linear-gradient(90deg,#111,#f2f2f2)}
+.scale{display:flex;justify-content:space-between;font:400 11px var(--f-data);color:var(--muted);margin-top:-2px}
+
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.row > span{font-weight:600;font-size:14px}
+.seg{display:flex;gap:3px;padding:3px;border-radius:10px;background:var(--bg);flex:1 1 200px;max-width:260px}
+.seg button{flex:1;min-height:36px;border:0;border-radius:8px;background:transparent;color:var(--muted);font-weight:600;font-size:13px;padding:0 8px}
+.seg button[aria-pressed="true"]{background:var(--raise);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.14)}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:600;font-size:14px;min-height:36px;cursor:pointer}
+.switch input{-webkit-appearance:none;appearance:none;flex:none;width:46px;height:28px;border-radius:14px;background:var(--line);position:relative;margin:0;cursor:pointer}
+.switch input::before{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--raise);box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.switch input:checked{background:var(--ink)}
+.switch input:checked::before{left:21px}
+@media (prefers-reduced-motion:no-preference){.switch input::before{transition:left .15s}}
+
+.propbar{display:flex;height:16px;border-radius:8px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(0,0,0,.1)}
+.propbar span{display:block;min-width:2px}
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(68px,1fr));gap:12px 10px}
+.sw{display:grid;gap:5px;align-content:start;text-align:left;border:0;background:none;padding:0;min-width:0}
+.chip{aspect-ratio:1;max-width:100%;border-radius:10px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}
+.sw[aria-pressed="true"] .chip{outline:3px solid var(--ink);outline-offset:2px}
+.sw.near .chip{outline:2px dashed var(--ink);outline-offset:2px}
+.sw .meta{font:400 11px/1.35 var(--f-data);color:var(--muted);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.sw .meta b{font-weight:500;color:var(--fg)}
+.hint{margin:0;color:var(--muted);font-size:13px}
+.tempbar span:nth-child(1){background:var(--warm)}
+.tempbar span:nth-child(2){background:var(--line)}
+.tempbar span:nth-child(3){background:var(--cool)}
+.templegend{display:flex;justify-content:space-between;gap:8px;font:400 12px var(--f-data);color:var(--muted)}
+.templegend b{font-weight:500;color:var(--fg)}
+
+.readout{display:grid;grid-template-columns:64px minmax(0,1fr);gap:14px;align-items:start}
+.readout .big{width:64px;height:64px;border-radius:12px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}
+.readout dl{margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 12px;font-size:13px}
+.readout dt{color:var(--muted)}
+.readout dd{margin:0;font-family:var(--f-data);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.readout .copy{border:0;background:none;padding:0 0 0 8px;font:600 12px var(--f-ui);text-decoration:underline;text-underline-offset:3px}
+.eyebrow{font:500 11px var(--f-data);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0}
+
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--on-ink);padding:10px 16px;border-radius:12px;font-size:14px;z-index:90;max-width:calc(100% - 32px);box-shadow:0 4px 16px rgba(0,0,0,.25)}
+
+.sheet{position:fixed;inset:0;z-index:60;background:var(--bg);display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:12px;padding:calc(14px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.sheet img{width:100%;height:100%;object-fit:contain;-webkit-touch-callout:default}
+.sheet p{margin:0;color:var(--muted);font-size:14px;text-align:center}
+
+/* Trace view: a single dark viewfinder look, so it re-scopes the tokens */
+.trace{--bg:#121212;--surface:#1d1d1d;--raise:#3a3a3a;--line:#4a4a4a;--fg:#f2f2f2;--muted:#b4b4b4;--ink:#f2f2f2;--on-ink:#121212;color-scheme:dark;
+  position:fixed;inset:0;z-index:50;background:#000;color:var(--fg);overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}
+.trace.lightbox{background:#fff}
+.trace video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#traceCanvas{position:absolute;left:50%;top:50%;transform-origin:center;will-change:transform;-webkit-touch-callout:none}
+.tbar{position:absolute;left:0;right:0;display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;background:rgba(18,18,18,.78);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px))}
+.tbar.t{top:0;padding-top:calc(10px + env(safe-area-inset-top,0px));padding-bottom:10px}
+.tbar.b{bottom:0;padding-top:10px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))}
+.tbar .seg{max-width:none;flex:1 1 180px}
+.tbar .field{flex:1 1 100%}
+.tbar .switch{flex:1 1 120px}
+.tbar .btn{min-height:40px}
+.tmsg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(420px,calc(100% - 40px));background:rgba(18,18,18,.88);color:#f2f2f2;padding:16px;border-radius:14px;font-size:14px;text-align:center;line-height:1.5}
+.lockbtn{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));right:calc(10px + env(safe-area-inset-right,0px));min-height:40px;padding:0 14px;border-radius:999px;border:0;background:rgba(18,18,18,.55);color:#f2f2f2;font-weight:600;font-size:13px}
+.lockbtn.holding{background:rgba(18,18,18,.9)}
+</style>
+
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <span class="mark" aria-hidden="true"></span>
+      <h1>Squint</h1>
+      <span class="tag">Color study for painting</span>
+    </div>
+    <label class="btn primary" for="file">Open photo</label>
+    <input type="file" id="file" class="sr" accept="image/*">
+  </header>
+
+  <main class="layout">
+    <section class="stage-col" aria-label="Photo">
+      <div class="stage" id="stage">
+        <div class="frame" id="frame">
+          <canvas id="view" aria-label="Photo preview. Tap to sample a color."></canvas>
+          <span class="badge" id="badge" hidden></span>
+          <span class="marker" id="marker" hidden></span>
+        </div>
+      </div>
+      <div class="stage-actions">
+        <button class="btn small" id="compare" type="button">Hold to see original</button>
+        <button class="btn small" id="saveBtn" type="button">Save image</button>
+        <button class="btn small primary" id="traceBtn" type="button">Trace on paper</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <nav class="tabs" role="tablist" aria-label="Study mode">
+        <button role="tab" data-mode="colors" id="tab-colors">Colors</button>
+        <button role="tab" data-mode="simplify" id="tab-simplify">Simplify</button>
+        <button role="tab" data-mode="values" id="tab-values">Values</button>
+        <button role="tab" data-mode="temp" id="tab-temp">Temp</button>
+      </nav>
+
+      <div class="card" id="mode-colors" role="tabpanel" aria-labelledby="tab-colors">
+        <div class="mode-head">
+          <h2>Main colors</h2>
+          <p>The dominant colors in the photo and how much of the picture each one covers. Tap a swatch to see where it sits.</p>
+        </div>
+        <div class="field">
+          <div class="field-top"><label for="colK">Colors</label><output id="colKOut"></output></div>
+          <input type="range" id="colK" data-key="colors.k" min="3" max="12" step="1">
+        </div>
+        <div class="row"><span>Sort by</span>
+          <div class="seg" data-key="colors.sort"><button type="button" data-val="amount">Amount</button><button type="button" data-val="value">Dark → light</button></div>
+        </div>
+        <label class="switch" for="colFlat"><span>Flatten photo to these colors</span><input type="checkbox" id="colFlat" data-key="colors.flat"></label>
+        <div class="propbar" id="colBar" aria-hidden="true"></div>
+        <div class="swatches" id="colSw"></div>
+      </div>
+
+      <div class="card" id="mode-simplify" role="tabpanel" aria-labelledby="tab-simplify" hidden>
+        <div class="mode-head">
+          <h2>Simplify</h2>
+          <p>Merges detail into flat shapes you can block in. Slide right to squint harder.</p>
+        </div>
+        <div class="field">
+          <div class="field-top"><label for="simA">Simplify</label><output id="simAOut"></output></div>
+          <input type="range" id="simA" data-key="simplify.amount" min="0" max="10" step="1">
+          <div class="scale" aria-hidden="true"><span>Detailed</span><span>Big shapes</span></div>
+        </div>
+        <div class="field">
+          <div class="field-top"><label for="simK">Colors</label><output id="simKOut"></output></div>
+          <input type="range" id="simK" data-key="simplify.k" min="2" max="16" step="1">
+        </div>
+        <label class="switch" for="simEdges"><span>Outline the shapes</span><input type="checkbox" id="simEdges" data-key="simplify.edges"></label>
+        <div class="propbar" id="simBar" aria-hidden="true"></div>
+        <div class="swatches" id="simSw"></div>
+      </div>
+
+      <div class="card" id="mode-values" role="tabpanel" aria-labelledby="tab-values" hidden>
+        <div class="mode-head">
+          <h2>Values</h2>
+          <p>Light and dark only. Two steps gives you a notan; three to five is a classic value study.</p>
+        </div>
+        <label class="switch" for="valGray"><span>Smooth grayscale (no steps)</span><input type="checkbox" id="valGray" data-key="values.gray"></label>
+        <div class="field" id="fieldSteps">
+          <div class="field-top"><label for="valSteps">Steps</label><output id="valStepsOut"></output></div>
+          <input type="range" id="valSteps" data-key="values.steps" min="2" max="9" step="1">
+        </div>
+        <div class="field" id="fieldThr">
+          <div class="field-top"><label for="valThr">Split point</label><span class="aux"><span id="valThrOut"></span><button type="button" class="aux-btn" id="thrAuto">Auto</button></span></div>
+          <input type="range" id="valThr" class="track-value" min="5" max="95" step="1">
+          <div class="scale" aria-hidden="true"><span>More light</span><span>More dark</span></div>
+        </div>
+        <div class="field" id="fieldShift">
+          <div class="field-top"><label for="valShift">Shift</label><output id="valShiftOut"></output></div>
+          <input type="range" id="valShift" class="track-value" data-key="values.shift" min="-25" max="25" step="1">
+          <div class="scale" aria-hidden="true"><span>Lighter</span><span>Darker</span></div>
+        </div>
+        <div class="field">
+          <div class="field-top"><label for="valSmooth">Smooth</label><output id="valSmoothOut"></output></div>
+          <input type="range" id="valSmooth" data-key="values.smooth" min="0" max="10" step="1">
+        </div>
+        <div class="swatches" id="valSw"></div>
+      </div>
+
+      <div class="card" id="mode-temp" role="tabpanel" aria-labelledby="tab-temp" hidden>
+        <div class="mode-head">
+          <h2>Temperature</h2>
+          <p>Where the photo leans warm or cool. Temperature is relative, so try comparing against the photo's own average.</p>
+        </div>
+        <div class="row"><span>Compare to</span>
+          <div class="seg" data-key="temp.ref"><button type="button" data-val="neutral">Neutral gray</button><button type="button" data-val="average">Photo average</button></div>
+        </div>
+        <div class="row"><span>Show</span>
+          <div class="seg" data-key="temp.show"><button type="button" data-val="both">Both</button><button type="button" data-val="warm">Warm</button><button type="button" data-val="cool">Cool</button></div>
+        </div>
+        <div class="field">
+          <div class="field-top"><label for="tempSens">Sensitivity</label><output id="tempSensOut"></output></div>
+          <input type="range" id="tempSens" data-key="temp.sens" min="1" max="10" step="1">
+        </div>
+        <div class="propbar tempbar" id="tempBar" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div class="templegend" id="tempLegend"></div>
+      </div>
+
+      <div class="card" id="readout" aria-live="polite"></div>
+    </section>
+  </main>
+</div>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="row"><p class="eyebrow">Save image</p><button class="btn small" id="sheetClose" type="button">Done</button></div>
+  <img id="sheetImg" alt="The current study view, ready to save">
+  <p>On iPhone: press and hold the image, then tap Save to Photos. On a computer: right-click it and choose Save Image.</p>
+</div>
+
+<div class="trace" id="trace" hidden>
+  <video id="cam" playsinline muted autoplay></video>
+  <canvas id="traceCanvas" aria-label="Tracing image. Drag to move, pinch to resize and rotate."></canvas>
+  <p class="tmsg" id="tmsg" hidden></p>
+  <div class="tbar t" id="tbarTop">
+    <button class="btn small" id="traceDone" type="button">Done</button>
+    <div class="seg" data-key="trace.bg"><button type="button" data-val="camera">Camera</button><button type="button" data-val="lightbox">Lightbox</button></div>
+    <button class="btn small primary" id="traceLock" type="button">Lock</button>
+  </div>
+  <div class="tbar b" id="tbarBot">
+    <div class="seg" data-key="trace.src"><button type="button" data-val="view">Study</button><button type="button" data-val="photo">Photo</button><button type="button" data-val="lines">Lines</button></div>
+    <div class="field" id="fieldOpacity">
+      <div class="field-top"><label for="trOp">Image strength</label><output id="trOpOut"></output></div>
+      <input type="range" id="trOp" data-key="trace.opacity" min="10" max="100" step="5">
+    </div>
+    <label class="switch" for="trGrid"><span>Grid</span><input type="checkbox" id="trGrid" data-key="trace.grid"></label>
+    <label class="switch" for="trFlip"><span>Mirror</span><input type="checkbox" id="trFlip" data-key="trace.flip"></label>
+  </div>
+  <button class="lockbtn" id="unlockBtn" type="button" hidden>Hold to unlock</button>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(() => {
+'use strict';
+const MAX_EDGE = 800;
+const STORE_KEY = 'squint.settings.v1', PHOTO_KEY = 'squint.photo.v1';
+const $ = s => document.querySelector(s);
+
+/* ---------- state ---------- */
+const DEFAULTS = {
+  mode: 'colors',
+  colors: { k: 6, sort: 'amount', flat: false },
+  simplify: { amount: 5, k: 8, edges: false },
+  values: { gray: false, steps: 3, thr: null, shift: 0, smooth: 2 },
+  temp: { ref: 'neutral', show: 'both', sens: 5 },
+  trace: { bg: 'camera', src: 'view', opacity: 55, grid: false, flip: false }
+};
+const state = JSON.parse(JSON.stringify(DEFAULTS));
+try {
+  const saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+  if (saved) for (const k of Object.keys(DEFAULTS)) {
+    if (typeof DEFAULTS[k] === 'object') Object.assign(state[k], saved[k] || {});
+    else if (saved[k] != null) state[k] = saved[k];
+  }
+} catch (e) {}
+const ui = { isolateColors: -1, isolateSimplify: -1, pick: null, original: false };
+let saveTimer = 0;
+function saveSettings() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {} }, 300);
+}
+
+/* ---------- color math ---------- */
+const LIN = new Float32Array(256);
+for (let i = 0; i < 256; i++) { const c = i / 255; LIN[i] = c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+const fLab = t => t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116;
+const fInv = t => { const t3 = t * t * t; return t3 > 0.008856 ? t3 : (t - 16 / 116) / 7.787; };
+const gam = c => c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+const c255 = v => v < 0 ? 0 : v > 255 ? 255 : Math.round(v);
+function rgbToLab(r, g, b) {
+  const R = LIN[r], G = LIN[g], B = LIN[b];
+  const x = fLab((0.4124 * R + 0.3576 * G + 0.1805 * B) / 0.95047);
+  const y = fLab(0.2126 * R + 0.7152 * G + 0.0722 * B);
+  const z = fLab((0.0193 * R + 0.1192 * G + 0.9505 * B) / 1.08883);
+  return [116 * y - 16, 500 * (x - y), 200 * (y - z)];
+}
+function labToRgb(L, a, b) {
+  const fy = (L + 16) / 116, fx = fy + a / 500, fz = fy - b / 200;
+  const X = fInv(fx) * 0.95047, Y = fInv(fy), Z = fInv(fz) * 1.08883;
+  return [
+    c255(gam(3.2406 * X - 1.5372 * Y - 0.4986 * Z) * 255),
+    c255(gam(-0.9689 * X + 1.8758 * Y + 0.0415 * Z) * 255),
+    c255(gam(0.0557 * X - 0.2040 * Y + 1.0570 * Z) * 255)
+  ];
+}
+function labArray(rgba, n) {
+  const lab = new Float32Array(n * 3);
+  for (let i = 0, p = 0, q = 0; i < n; i++, p += 4, q += 3) {
+    const R = LIN[rgba[p]], G = LIN[rgba[p + 1]], B = LIN[rgba[p + 2]];
+    const x = fLab((0.4124 * R + 0.3576 * G + 0.1805 * B) / 0.95047);
+    const y = fLab(0.2126 * R + 0.7152 * G + 0.0722 * B);
+    const z = fLab((0.0193 * R + 0.1192 * G + 0.9505 * B) / 1.08883);
+    lab[q] = 116 * y - 16; lab[q + 1] = 500 * (x - y); lab[q + 2] = 200 * (y - z);
+  }
+  return lab;
+}
+const GRAY = new Uint8Array(101);
+for (let L = 0; L <= 100; L++) GRAY[L] = labToRgb(L, 0, 0)[0];
+const grayOf = L => GRAY[L < 0 ? 0 : L > 100 ? 100 : Math.round(L)];
+const hex = (r, g, b) => '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2;
+  let h = 0, s = 0;
+  if (mx !== mn) {
+    const d = mx - mn; s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+    h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60;
+  }
+  return [Math.round(h), Math.round(s * 100), Math.round(l * 100)];
+}
+// Warm/cool axis in Lab: a hue near orange (50°) is the warm pole, its opposite (blue-cyan) the cool pole.
+const POLE = 50 * Math.PI / 180, PC = Math.cos(POLE), PS = Math.sin(POLE);
+const warmth = (a, b) => a * PC + b * PS;
+
+/* ---------- image processing ---------- */
+function rng(seed) { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return (s >>> 0) / 4294967296; }; }
+
+function blurPass(s, d, w, h, r, horizontal) {
+  const inv = 1 / (r + r + 1);
+  const lines = horizontal ? h : w, len = horizontal ? w : h;
+  const step = horizontal ? 4 : w * 4;
+  for (let ln = 0; ln < lines; ln++) {
+    const base = horizontal ? ln * w * 4 : ln * 4;
+    for (let c = 0; c < 3; c++) {
+      let acc = 0;
+      for (let k = -r; k <= r; k++) { const kk = k < 0 ? 0 : k > len - 1 ? len - 1 : k; acc += s[base + kk * step + c]; }
+      for (let x = 0; x < len; x++) {
+        d[base + x * step + c] = acc * inv;
+        const xo = x - r < 0 ? 0 : x - r, xi = x + r + 1 > len - 1 ? len - 1 : x + r + 1;
+        acc += s[base + xi * step + c] - s[base + xo * step + c];
+      }
+    }
+    for (let x = 0; x < len; x++) d[base + x * step + 3] = 255;
+  }
+}
+function blurRGBA(src, w, h, r) {
+  const a = new Uint8ClampedArray(src), b = new Uint8ClampedArray(src.length);
+  for (let pass = 0; pass < 2; pass++) { blurPass(a, b, w, h, r, true); blurPass(b, a, w, h, r, false); }
+  return a;
+}
+
+function kmeans(lab, n, k, seed) {
+  const rand = rng(seed);
+  const S = Math.min(n, 5000), samp = new Float32Array(S * 3);
+  for (let i = 0; i < S; i++) { const p = Math.floor(rand() * n) * 3; samp[i * 3] = lab[p]; samp[i * 3 + 1] = lab[p + 1]; samp[i * 3 + 2] = lab[p + 2]; }
+  const C = new Float32Array(k * 3);
+  const d2 = (i, c) => { const x = samp[i * 3] - C[c * 3], y = samp[i * 3 + 1] - C[c * 3 + 1], z = samp[i * 3 + 2] - C[c * 3 + 2]; return x * x + y * y + z * z; };
+  const first = Math.floor(rand() * S); C[0] = samp[first * 3]; C[1] = samp[first * 3 + 1]; C[2] = samp[first * 3 + 2];
+  const D = new Float32Array(S).fill(Infinity);
+  for (let c = 1; c < k; c++) {
+    let sum = 0;
+    for (let i = 0; i < S; i++) { const d = d2(i, c - 1); if (d < D[i]) D[i] = d; sum += D[i]; }
+    let t = rand() * sum, pick = S - 1;
+    for (let i = 0; i < S; i++) { t -= D[i]; if (t <= 0) { pick = i; break; } }
+    C[c * 3] = samp[pick * 3]; C[c * 3 + 1] = samp[pick * 3 + 1]; C[c * 3 + 2] = samp[pick * 3 + 2];
+  }
+  const asg = new Int16Array(S).fill(-1), sums = new Float64Array(k * 3), cnt = new Uint32Array(k);
+  for (let it = 0; it < 24; it++) {
+    sums.fill(0); cnt.fill(0); let moved = 0;
+    for (let i = 0; i < S; i++) {
+      let best = 0, bd = Infinity;
+      for (let c = 0; c < k; c++) { const d = d2(i, c); if (d < bd) { bd = d; best = c; } }
+      if (asg[i] !== best) { asg[i] = best; moved++; }
+      cnt[best]++; sums[best * 3] += samp[i * 3]; sums[best * 3 + 1] += samp[i * 3 + 1]; sums[best * 3 + 2] += samp[i * 3 + 2];
+    }
+    for (let c = 0; c < k; c++) {
+      if (cnt[c]) { C[c * 3] = sums[c * 3] / cnt[c]; C[c * 3 + 1] = sums[c * 3 + 1] / cnt[c]; C[c * 3 + 2] = sums[c * 3 + 2] / cnt[c]; }
+      else { const p = Math.floor(rand() * S); C[c * 3] = samp[p * 3]; C[c * 3 + 1] = samp[p * 3 + 1]; C[c * 3 + 2] = samp[p * 3 + 2]; }
+    }
+    if (moved === 0) break;
+  }
+  return C;
+}
+function assign(lab, n, C, k) {
+  const labels = new Uint8Array(n);
+  for (let i = 0, q = 0; i < n; i++, q += 3) {
+    const L = lab[q], A = lab[q + 1], B = lab[q + 2];
+    let best = 0, bd = Infinity;
+    for (let c = 0; c < k; c++) { const x = L - C[c * 3], y = A - C[c * 3 + 1], z = B - C[c * 3 + 2], d = x * x + y * y + z * z; if (d < bd) { bd = d; best = c; } }
+    labels[i] = best;
+  }
+  return labels;
+}
+function majority(labels, w, h, k, r) {
+  const out = new Uint8Array(labels.length), cnt = new Uint16Array(k);
+  for (let y = 0; y < h; y++) {
+    const y0 = Math.max(0, y - r), y1 = Math.min(h - 1, y + r);
+    for (let x = 0; x < w; x++) {
+      const x0 = Math.max(0, x - r), x1 = Math.min(w - 1, x + r);
+      let best = labels[y * w + x], bc = 0;
+      for (let yy = y0; yy <= y1; yy++) for (let xx = x0; xx <= x1; xx++) { const l = labels[yy * w + xx], c = ++cnt[l]; if (c > bc) { bc = c; best = l; } }
+      out[y * w + x] = best;
+      for (let yy = y0; yy <= y1; yy++) for (let xx = x0; xx <= x1; xx++) cnt[labels[yy * w + xx]] = 0;
+    }
+  }
+  return out;
+}
+function finishPalette(C, k, labels, n) {
+  const counts = new Uint32Array(k);
+  for (let i = 0; i < n; i++) counts[labels[i]]++;
+  const crgb = new Uint8Array(k * 3), list = [];
+  for (let c = 0; c < k; c++) {
+    const rgb = labToRgb(C[c * 3], C[c * 3 + 1], C[c * 3 + 2]);
+    crgb.set(rgb, c * 3);
+    list.push({ idx: c, rgb, L: C[c * 3], a: C[c * 3 + 1], b: C[c * 3 + 2], share: counts[c] / n });
+  }
+  return { C, k, labels, crgb, list };
+}
+
+/* ---------- image + caches ---------- */
+let img = null, outData = null;
+const cache = { blur: new Map(), pal: null, simp: null, val: null, temp: null };
+const view = $('#view'), vctx = view.getContext('2d', { willReadFrequently: true });
+
+function getBlur(r) {
+  r = Math.max(0, Math.round(r));
+  if (cache.blur.has(r)) return cache.blur.get(r);
+  const rgba = r ? blurRGBA(img.rgba, img.w, img.h, r) : img.rgba;
+  const entry = { rgba, lab: labArray(rgba, img.n) };
+  cache.blur.set(r, entry);
+  if (cache.blur.size > 4) cache.blur.delete(cache.blur.keys().next().value);
+  return entry;
+}
+function getPalette() {
+  const k = state.colors.k;
+  if (cache.pal && cache.pal.key === k) return cache.pal;
+  const lab = getBlur(img.scale).lab;
+  const C = kmeans(lab, img.n, k, 7);
+  cache.pal = Object.assign(finishPalette(C, k, assign(lab, img.n, C, k), img.n), { key: k });
+  return cache.pal;
+}
+function getSimplify() {
+  const { amount: a, k } = state.simplify, key = a + '|' + k;
+  if (cache.simp && cache.simp.key === key) return cache.simp;
+  const lab = getBlur(a * 0.9 * img.scale).lab;
+  const C = kmeans(lab, img.n, k, 11);
+  let labels = assign(lab, img.n, C, k);
+  const passes = a < 3 ? 0 : a < 6 ? 1 : 2, rad = a >= 8 ? 2 : 1;
+  for (let p = 0; p < passes; p++) labels = majority(labels, img.w, img.h, k, rad);
+  cache.simp = Object.assign(finishPalette(C, k, labels, img.n), { key });
+  return cache.simp;
+}
+function getValueBase() {
+  const r = Math.round(state.values.smooth * 0.8 * img.scale);
+  if (cache.val && cache.val.r === r) return cache.val;
+  const lab = getBlur(r).lab, hist = new Uint32Array(101);
+  for (let i = 0; i < img.n; i++) { const L = lab[i * 3]; hist[L < 0 ? 0 : L > 100 ? 100 : Math.round(L)]++; }
+  const pct = q => { let acc = 0; const t = q * img.n; for (let i = 0; i <= 100; i++) { acc += hist[i]; if (acc >= t) return i; } return 100; };
+  let sum = 0; for (let i = 0; i <= 100; i++) sum += i * hist[i];
+  let sumB = 0, wB = 0, max = 0, otsu = 50;
+  for (let i = 0; i <= 100; i++) {
+    wB += hist[i]; if (!wB) continue; const wF = img.n - wB; if (!wF) break;
+    sumB += i * hist[i]; const mB = sumB / wB, mF = (sum - sumB) / wF, bt = wB * wF * (mB - mF) * (mB - mF);
+    if (bt > max) { max = bt; otsu = i; }
+  }
+  cache.val = { r, lab, lo: pct(0.02), hi: Math.max(pct(0.98), pct(0.02) + 10), otsu: Math.min(95, Math.max(5, otsu)) };
+  return cache.val;
+}
+function getTempBase() {
+  const r = Math.round(img.scale);
+  if (cache.temp && cache.temp.r === r) return cache.temp;
+  const lab = getBlur(r).lab, T = new Float32Array(img.n); let sum = 0;
+  for (let i = 0; i < img.n; i++) { const t = warmth(lab[i * 3 + 1], lab[i * 3 + 2]); T[i] = t; sum += t; }
+  cache.temp = { r, lab, T, mean: sum / img.n };
+  return cache.temp;
+}
+
+/* ---------- renderers ---------- */
+function fade(d, p, r, g, b) { const v = 150 + (r * 0.3 + g * 0.59 + b * 0.11) * 0.33; d[p] = d[p + 1] = d[p + 2] = v; }
+
+function renderColors() {
+  const P = getPalette(), d = outData.data, s = img.rgba, L = P.labels, c = P.crgb;
+  const iso = ui.isolateColors, flat = state.colors.flat;
+  for (let i = 0, p = 0; i < img.n; i++, p += 4) {
+    const l = L[i];
+    const r = flat ? c[l * 3] : s[p], g = flat ? c[l * 3 + 1] : s[p + 1], b = flat ? c[l * 3 + 2] : s[p + 2];
+    if (iso >= 0 && l !== iso) fade(d, p, r, g, b); else { d[p] = r; d[p + 1] = g; d[p + 2] = b; }
+    d[p + 3] = 255;
+  }
+  const list = P.list.slice().sort(state.colors.sort === 'value' ? (x, y) => x.L - y.L : (x, y) => y.share - x.share);
+  drawSwatches($('#colSw'), $('#colBar'), list, iso, 'colors');
+}
+function renderSimplify() {
+  const P = getSimplify(), d = outData.data, L = P.labels, c = P.crgb, w = img.w, h = img.h;
+  const iso = ui.isolateSimplify, edges = state.simplify.edges;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x, p = i * 4, l = L[i];
+    const r = c[l * 3], g = c[l * 3 + 1], b = c[l * 3 + 2];
+    if (iso >= 0 && l !== iso) fade(d, p, r, g, b); else { d[p] = r; d[p + 1] = g; d[p + 2] = b; }
+    if (edges && ((x < w - 1 && L[i + 1] !== l) || (y < h - 1 && L[i + w] !== l) || (x > 0 && L[i - 1] !== l) || (y > 0 && L[i - w] !== l))) { d[p] = d[p + 1] = d[p + 2] = 24; }
+    d[p + 3] = 255;
+  }
+  const list = P.list.slice().sort((x, y) => y.share - x.share);
+  drawSwatches($('#simSw'), $('#simBar'), list, iso, 'simplify');
+}
+function valueSplits(V) {
+  const v = state.values, n = v.steps;
+  if (n === 2) return [v.thr == null ? V.otsu : v.thr];
+  const out = [];
+  for (let j = 1; j < n; j++) out.push(V.lo + (V.hi - V.lo) * j / n + v.shift);
+  return out;
+}
+function renderValues() {
+  const V = getValueBase(), d = outData.data, lab = V.lab, v = state.values;
+  if (v.gray) {
+    for (let i = 0, p = 0; i < img.n; i++, p += 4) { d[p] = d[p + 1] = d[p + 2] = grayOf(lab[i * 3]); d[p + 3] = 255; }
+    $('#valSw').innerHTML = '<p class="hint">Squint-level grayscale. Turn steps back on to group values into bands.</p>';
+    return;
+  }
+  const n = v.steps, splits = valueSplits(V);
+  const disp = []; for (let i = 0; i < n; i++) disp.push(n === 2 ? (i ? 96 : 10) : 8 + i * (88 / (n - 1)));
+  const tone = disp.map(grayOf), counts = new Uint32Array(n);
+  for (let i = 0, p = 0; i < img.n; i++, p += 4) {
+    const L = lab[i * 3]; let band = 0;
+    while (band < n - 1 && L >= splits[band]) band++;
+    counts[band]++;
+    d[p] = d[p + 1] = d[p + 2] = tone[band]; d[p + 3] = 255;
+  }
+  const names = n === 2 ? ['Dark', 'Light'] : null;
+  $('#valSw').innerHTML = disp.map((L, i) => `<div class="sw"><div class="chip" style="background:rgb(${tone[i]},${tone[i]},${tone[i]})"></div><div class="meta"><b>${names ? names[i] : 'Value ' + (L / 10).toFixed(1)}</b><br>${Math.round(counts[i] / img.n * 100)}% of picture</div></div>`).join('');
+  if (n === 2) {
+    const t = v.thr == null ? V.otsu : v.thr, thr = $('#valThr');
+    if (document.activeElement !== thr) thr.value = t;
+    $('#valThrOut').textContent = 'L* ' + Math.round(t) + (v.thr == null ? ' · auto' : '');
+  }
+}
+let tempLUT = null;
+function buildTempLUT() {
+  // [warm|cool][strength 0..15][L 0..100] -> rgb, tinted while keeping the pixel's value
+  tempLUT = new Uint8Array(2 * 16 * 101 * 3);
+  for (let side = 0; side < 2; side++) for (let s = 0; s < 16; s++) for (let L = 0; L <= 100; L++) {
+    const k = s / 15, rgb = side === 0 ? labToRgb(L, 16 + 30 * k, 28 + 44 * k) : labToRgb(L, 4 + 10 * k, -22 - 40 * k);
+    tempLUT.set(rgb, ((side * 16 + s) * 101 + L) * 3);
+  }
+}
+function renderTemp() {
+  if (!tempLUT) buildTempLUT();
+  const B = getTempBase(), d = outData.data, lab = B.lab, T = B.T, t = state.temp;
+  const th = (11 - t.sens) * 2.6, off = t.ref === 'average' ? B.mean : 0;
+  let nw = 0, nc = 0;
+  for (let i = 0, p = 0; i < img.n; i++, p += 4) {
+    const v = T[i] - off, Lp = Math.round(24 + lab[i * 3] * 0.68);
+    let side = -1, s = 0;
+    if (v > th) { nw++; if (t.show !== 'cool') { side = 0; s = Math.min(15, Math.round((v - th) / 30 * 15)); } }
+    else if (v < -th) { nc++; if (t.show !== 'warm') { side = 1; s = Math.min(15, Math.round((-v - th) / 30 * 15)); } }
+    if (side < 0) { const g = grayOf(Lp); d[p] = d[p + 1] = d[p + 2] = g; }
+    else { const q = ((side * 16 + s) * 101 + (Lp > 100 ? 100 : Lp)) * 3; d[p] = tempLUT[q]; d[p + 1] = tempLUT[q + 1]; d[p + 2] = tempLUT[q + 2]; }
+    d[p + 3] = 255;
+  }
+  const pw = nw / img.n * 100, pc = nc / img.n * 100, pn = Math.max(0, 100 - pw - pc);
+  const spans = $('#tempBar').children;
+  spans[0].style.flex = pw + ' 0 0'; spans[1].style.flex = pn + ' 0 0'; spans[2].style.flex = pc + ' 0 0';
+  $('#tempLegend').innerHTML = `<span><b>${Math.round(pw)}%</b> warm</span><span><b>${Math.round(pn)}%</b> neutral</span><span><b>${Math.round(pc)}%</b> cool</span>`;
+}
+function drawSwatches(grid, bar, list, iso, which) {
+  const near = nearestIdx(which);
+  bar.innerHTML = list.map(e => `<span style="flex:${e.share} 0 0;background:rgb(${e.rgb})"></span>`).join('');
+  grid.innerHTML = list.map(e => {
+    const h = hex(...e.rgb);
+    return `<button type="button" class="sw${near === e.idx ? ' near' : ''}" data-idx="${e.idx}" data-which="${which}" aria-pressed="${iso === e.idx}" aria-label="${h}, ${Math.round(e.share * 100)} percent">
+      <div class="chip" style="background:${h}"></div>
+      <div class="meta"><b>${h}</b><br>${Math.max(1, Math.round(e.share * 100))}% · V ${(e.L / 10).toFixed(1)}</div></button>`;
+  }).join('');
+}
+
+/* ---------- render loop ---------- */
+let raf = 0;
+function schedule() { if (!raf) raf = requestAnimationFrame(() => { raf = 0; render(); }); }
+function render() {
+  if (!img) return;
+  if (ui.original) { vctx.putImageData(img.data, 0, 0); return; }
+  ({ colors: renderColors, simplify: renderSimplify, values: renderValues, temp: renderTemp })[state.mode]();
+  vctx.putImageData(outData, 0, 0);
+  renderReadout();
+  if (!$('#trace').hidden) drawTrace();
+}
+
+/* ---------- color readout ---------- */
+function samplePick() {
+  if (!ui.pick) return null;
+  const x0 = Math.floor(ui.pick.fx * img.w), y0 = Math.floor(ui.pick.fy * img.h), s = img.rgba;
+  let r = 0, g = 0, b = 0, c = 0;
+  for (let y = y0 - 2; y <= y0 + 2; y++) for (let x = x0 - 2; x <= x0 + 2; x++) {
+    if (x < 0 || y < 0 || x >= img.w || y >= img.h) continue;
+    const p = (y * img.w + x) * 4; r += s[p]; g += s[p + 1]; b += s[p + 2]; c++;
+  }
+  return [Math.round(r / c), Math.round(g / c), Math.round(b / c)];
+}
+function nearestIdx(which) {
+  const rgb = samplePick(); if (!rgb) return -1;
+  const P = which === 'colors' ? cache.pal : cache.simp; if (!P) return -1;
+  const [L, a, b] = rgbToLab(...rgb); let best = -1, bd = Infinity;
+  for (let c = 0; c < P.k; c++) { const x = L - P.C[c * 3], y = a - P.C[c * 3 + 1], z = b - P.C[c * 3 + 2], d = x * x + y * y + z * z; if (d < bd) { bd = d; best = c; } }
+  return best;
+}
+function renderReadout() {
+  const el = $('#readout'), rgb = samplePick();
+  if (!rgb) {
+    el.innerHTML = `<p class="eyebrow">Color picker</p><p class="hint">Tap anywhere on the photo to read its color, value and temperature.${img && img.sample ? ' This is a sample landscape. Tap Open photo to study one of your own.' : ''}</p>`;
+    return;
+  }
+  const [L, a, b] = rgbToLab(...rgb), [hh, ss, ll] = rgbToHsl(...rgb), h = hex(...rgb);
+  const chroma = Math.hypot(a, b), hue = (Math.atan2(b, a) * 180 / Math.PI + 360) % 360;
+  let t = warmth(a, b);
+  if (state.temp.ref === 'average' && cache.temp) t -= cache.temp.mean;
+  const tw = Math.abs(t) < 6 ? 'Neutral' : (Math.abs(t) < 18 ? 'Slightly ' : '') + (t > 0 ? 'warm' : 'cool');
+  el.innerHTML = `<p class="eyebrow">Sampled color</p>
+    <div class="readout"><div class="big" style="background:${h}"></div>
+    <dl>
+      <dt>Hex</dt><dd>${h}<button type="button" class="copy" data-copy="${h}">Copy</button></dd>
+      <dt>RGB</dt><dd>${rgb.join(', ')}</dd>
+      <dt>HSL</dt><dd>${hh}°, ${ss}%, ${ll}%</dd>
+      <dt>Lab</dt><dd>${L.toFixed(0)}, ${a.toFixed(0)}, ${b.toFixed(0)}</dd>
+      <dt>Value</dt><dd>${(L / 10).toFixed(1)} of 10</dd>
+      <dt>Chroma</dt><dd>${chroma.toFixed(0)} at ${hue.toFixed(0)}°</dd>
+      <dt>Temp</dt><dd>${tw[0].toUpperCase() + tw.slice(1)}${state.temp.ref === 'average' ? ' vs. photo' : ''}</dd>
+    </dl></div>`;
+}
+
+/* ---------- controls ---------- */
+const getK = key => key.split('.').reduce((o, k) => o[k], state);
+const setK = (key, v) => { const [a, b] = key.split('.'); state[a][b] = v; };
+const FMT = {
+  'colors.k': v => v, 'simplify.amount': v => v === 0 ? 'Off' : v + ' of 10', 'simplify.k': v => v,
+  'values.steps': v => v === 2 ? '2 · notan' : v, 'values.shift': v => (v > 0 ? '+' : '') + v,
+  'values.smooth': v => v === 0 ? 'Off' : v, 'temp.sens': v => v, 'trace.opacity': v => v + '%'
+};
+function syncControls() {
+  document.querySelectorAll('input[type=range][data-key]').forEach(el => {
+    const v = getK(el.dataset.key); el.value = v;
+    const out = document.getElementById(el.id + 'Out'); if (out) out.textContent = FMT[el.dataset.key](v);
+  });
+  document.querySelectorAll('input[type=checkbox][data-key]').forEach(el => { el.checked = !!getK(el.dataset.key); });
+  document.querySelectorAll('.seg[data-key]').forEach(seg => {
+    const v = getK(seg.dataset.key);
+    seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.val === v)));
+  });
+  document.querySelectorAll('.tabs button').forEach(b => {
+    const on = b.dataset.mode === state.mode;
+    b.setAttribute('aria-selected', String(on));
+    document.getElementById('mode-' + b.dataset.mode).hidden = !on;
+  });
+  const v = state.values;
+  $('#fieldSteps').hidden = v.gray; $('#fieldThr').hidden = v.gray || v.steps !== 2; $('#fieldShift').hidden = v.gray || v.steps === 2;
+  $('#fieldOpacity').hidden = state.trace.bg !== 'camera';
+}
+function changed(key) {
+  if (key === 'colors.k') ui.isolateColors = -1;
+  if (key === 'simplify.k' || key === 'simplify.amount') ui.isolateSimplify = -1;
+  if (key && key.startsWith('trace.')) { applyTraceSettings(key); }
+  syncControls(); saveSettings(); schedule();
+}
+document.addEventListener('input', e => {
+  const el = e.target; if (!el.dataset || !el.dataset.key) return;
+  setK(el.dataset.key, el.type === 'checkbox' ? el.checked : +el.value); changed(el.dataset.key);
+});
+document.addEventListener('click', e => {
+  const segBtn = e.target.closest('.seg[data-key] button');
+  if (segBtn) { const key = segBtn.closest('.seg').dataset.key; setK(key, segBtn.dataset.val); changed(key); return; }
+  const tab = e.target.closest('.tabs button');
+  if (tab) { state.mode = tab.dataset.mode; changed(); return; }
+  const sw = e.target.closest('button.sw');
+  if (sw) {
+    const idx = +sw.dataset.idx, k = sw.dataset.which === 'colors' ? 'isolateColors' : 'isolateSimplify';
+    ui[k] = ui[k] === idx ? -1 : idx; schedule(); return;
+  }
+  const cp = e.target.closest('[data-copy]');
+  if (cp) {
+    const text = cp.dataset.copy;
+    try { navigator.clipboard.writeText(text).then(() => toast('Copied ' + text), () => toast(text + ' (copy is blocked here)')); }
+    catch (err) { toast(text + ' (copy is blocked here)'); }
+  }
+});
+$('#valThr').addEventListener('input', e => { state.values.thr = +e.target.value; saveSettings(); schedule(); });
+$('#thrAuto').addEventListener('click', () => { state.values.thr = null; saveSettings(); schedule(); });
+
+/* tap to sample */
+view.addEventListener('click', e => {
+  const r = view.getBoundingClientRect();
+  ui.pick = { fx: Math.min(0.999, Math.max(0, (e.clientX - r.left) / r.width)), fy: Math.min(0.999, Math.max(0, (e.clientY - r.top) / r.height)) };
+  const m = $('#marker'); m.hidden = false; m.style.left = ui.pick.fx * 100 + '%'; m.style.top = ui.pick.fy * 100 + '%';
+  schedule();
+});
+
+/* hold to compare */
+const cmp = $('#compare');
+const holdOn = e => { if (e) e.preventDefault(); ui.original = true; setBadge('Original'); render(); };
+const holdOff = () => { if (!ui.original) return; ui.original = false; setBadge(); render(); };
+cmp.addEventListener('pointerdown', holdOn);
+['pointerup', 'pointercancel', 'pointerleave'].forEach(t => cmp.addEventListener(t, holdOff));
+cmp.addEventListener('contextmenu', e => e.preventDefault());
+cmp.addEventListener('keydown', e => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) holdOn(e); });
+cmp.addEventListener('keyup', holdOff);
+
+/* save */
+let sheetURL = null;
+$('#saveBtn').addEventListener('click', () => {
+  view.toBlob(b => {
+    if (!b) { toast('Could not prepare the image.'); return; }
+    if (sheetURL) URL.revokeObjectURL(sheetURL);
+    sheetURL = URL.createObjectURL(b); $('#sheetImg').src = sheetURL; $('#sheet').hidden = false;
+  }, 'image/jpeg', 0.92);
+});
+$('#sheetClose').addEventListener('click', () => { $('#sheet').hidden = true; });
+
+/* toast */
+let toastTimer = 0;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 2600); }
+
+/* ---------- loading photos ---------- */
+function setBadge(text) {
+  const b = $('#badge'); const t = text || (img && img.sample ? 'Sample photo' : '');
+  b.hidden = !t; b.textContent = t;
+}
+function setImage(data, sample) {
+  img = { w: data.width, h: data.height, n: data.width * data.height, data, rgba: data.data, sample, scale: Math.max(data.width, data.height) / MAX_EDGE };
+  view.width = img.w; view.height = img.h; outData = vctx.createImageData(img.w, img.h);
+  cache.blur.clear(); cache.pal = cache.simp = cache.val = cache.temp = null;
+  ui.pick = null; ui.isolateColors = ui.isolateSimplify = -1; $('#marker').hidden = true;
+  setBadge(); sizeFrame(); render();
+}
+function imageToData(im) {
+  const s = Math.min(1, MAX_EDGE / Math.max(im.naturalWidth, im.naturalHeight));
+  const w = Math.max(1, Math.round(im.naturalWidth * s)), h = Math.max(1, Math.round(im.naturalHeight * s));
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(im, 0, 0, w, h);
+  return { data: g.getImageData(0, 0, w, h), canvas: c };
+}
+$('#file').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  const url = URL.createObjectURL(f), im = new Image();
+  im.onload = () => {
+    const { data, canvas } = imageToData(im); URL.revokeObjectURL(url);
+    setImage(data, false);
+    try { localStorage.setItem(PHOTO_KEY, canvas.toDataURL('image/jpeg', 0.86)); } catch (err) {}
+  };
+  im.onerror = () => { URL.revokeObjectURL(url); toast("That file didn't open. Try a JPEG or PNG photo."); };
+  im.src = url; e.target.value = '';
+});
+
+function paintSample(w, h) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d', { willReadFrequently: true }), R = rng(42), hz = Math.round(h * 0.56);
+  let gr = g.createLinearGradient(0, 0, 0, hz);
+  gr.addColorStop(0, '#26457a'); gr.addColorStop(0.42, '#6f7fae'); gr.addColorStop(0.74, '#d99a78'); gr.addColorStop(1, '#f4c58c');
+  g.fillStyle = gr; g.fillRect(0, 0, w, hz);
+  const sx = w * 0.66, sy = hz - h * 0.05;
+  let rg = g.createRadialGradient(sx, sy, 0, sx, sy, h * 0.42);
+  rg.addColorStop(0, 'rgba(255,242,205,1)'); rg.addColorStop(0.07, 'rgba(255,226,168,.95)'); rg.addColorStop(0.3, 'rgba(250,182,122,.35)'); rg.addColorStop(1, 'rgba(250,170,120,0)');
+  g.fillStyle = rg; g.fillRect(0, 0, w, hz);
+  for (let i = 0; i < 9; i++) {
+    const cx = R() * w, cy = h * (0.07 + R() * 0.28), cw = w * (0.1 + R() * 0.2), ch = h * (0.014 + R() * 0.026);
+    const cg = g.createLinearGradient(0, cy - ch, 0, cy + ch); cg.addColorStop(0, 'rgba(244,196,172,.8)'); cg.addColorStop(1, 'rgba(112,100,146,.8)');
+    g.fillStyle = cg; g.beginPath(); g.ellipse(cx, cy, cw, ch, 0, 0, Math.PI * 2); g.fill();
+  }
+  const ridge = (base, amp, color, f, ph) => {
+    g.fillStyle = color; g.beginPath(); g.moveTo(0, hz + 1);
+    for (let x = 0; x <= w; x += 4) g.lineTo(x, base - amp * (0.55 * Math.sin(x * f + ph) + 0.3 * Math.sin(x * f * 2.7 + ph * 1.7) + 0.15 * Math.sin(x * f * 6.1 + ph * 0.3)));
+    g.lineTo(w, hz + 1); g.closePath(); g.fill();
+  };
+  ridge(hz - h * 0.09, h * 0.07, '#9a8fb3', 0.006, 1.2);
+  ridge(hz - h * 0.03, h * 0.045, '#5d6a91', 0.011, 4.1);
+  gr = g.createLinearGradient(0, hz, 0, h); gr.addColorStop(0, '#caa08a'); gr.addColorStop(0.25, '#6e7ba3'); gr.addColorStop(1, '#1f3355');
+  g.fillStyle = gr; g.fillRect(0, hz, w, h - hz);
+  for (let i = 0; i < 80; i++) {
+    const y = hz + 2 + Math.pow(R(), 1.6) * h * 0.3, spread = (y - hz) * 0.35 + 6, x = sx + (R() - 0.5) * spread * 2, len = 6 + R() * 30;
+    g.fillStyle = `rgba(255,${200 + R() * 40 | 0},${140 + R() * 60 | 0},${0.35 + R() * 0.5})`; g.fillRect(x - len / 2, y, len, 1.5 + R() * 1.5);
+  }
+  g.fillStyle = '#b8432c'; g.beginPath(); const bx = w * 0.47, by = hz + h * 0.13;
+  g.moveTo(bx - 26, by); g.lineTo(bx + 30, by); g.lineTo(bx + 20, by + 9); g.lineTo(bx - 18, by + 9); g.closePath(); g.fill();
+  g.fillStyle = '#efe3cf'; g.fillRect(bx - 2, by - 26, 3, 26);
+  g.beginPath(); g.moveTo(bx + 2, by - 24); g.lineTo(bx + 20, by - 4); g.lineTo(bx + 2, by - 4); g.closePath(); g.fill();
+  gr = g.createLinearGradient(0, h * 0.78, 0, h); gr.addColorStop(0, '#c9a056'); gr.addColorStop(1, '#5a4520');
+  g.fillStyle = gr; g.beginPath(); g.moveTo(w * 0.35, h); g.bezierCurveTo(w * 0.55, h * 0.86, w * 0.8, h * 0.8, w, h * 0.78); g.lineTo(w, h); g.closePath(); g.fill();
+  gr = g.createLinearGradient(0, hz - h * 0.15, 0, h); gr.addColorStop(0, '#3e4b33'); gr.addColorStop(1, '#141b13');
+  g.fillStyle = gr; g.beginPath(); g.moveTo(0, hz - h * 0.12);
+  g.bezierCurveTo(w * 0.12, hz - h * 0.13, w * 0.22, hz - h * 0.02, w * 0.34, hz + h * 0.05);
+  g.bezierCurveTo(w * 0.4, h * 0.8, w * 0.3, h * 0.9, w * 0.22, h); g.lineTo(0, h); g.closePath(); g.fill();
+  for (let i = 0; i < 16; i++) {
+    const tx = R() * w * 0.3, base = hz - h * 0.1 + tx / (w * 0.3) * h * 0.12 + R() * h * 0.05, th = h * (0.08 + R() * 0.12), tw = th * 0.32;
+    g.fillStyle = R() < 0.5 ? '#1b2618' : '#26341f'; g.beginPath(); g.moveTo(tx, base - th); g.lineTo(tx + tw, base); g.lineTo(tx - tw, base); g.closePath(); g.fill();
+  }
+  const id = g.getImageData(0, 0, w, h), d = id.data;
+  for (let i = 0; i < d.length; i += 4) { const k = (R() - 0.5) * 9; d[i] += k; d[i + 1] += k; d[i + 2] += k; }
+  return id;
+}
+
+/* ---------- layout ---------- */
+const stage = $('#stage'), frame = $('#frame');
+function sizeFrame() {
+  if (!img) return;
+  const cs = getComputedStyle(stage), availW = stage.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const wide = matchMedia('(min-width: 900px)').matches;
+  const maxH = wide ? Math.max(320, innerHeight - 170) : Math.max(240, innerHeight * 0.52);
+  frame.style.width = Math.floor(Math.min(availW, maxH * img.w / img.h)) + 'px';
+}
+addEventListener('resize', () => { sizeFrame(); if (!$('#trace').hidden) fitTrace(false); });
+
+/* ---------- trace on paper ---------- */
+const trace = $('#trace'), tcan = $('#traceCanvas'), tctx = tcan.getContext('2d'), cam = $('#cam');
+const tf = { x: 0, y: 0, s: 1, r: 0, baseW: 0 };
+let stream = null, wakeLock = null, locked = false;
+
+function linesImage() {
+  const P = getSimplify(), L = P.labels, w = img.w, h = img.h, id = new ImageData(w, h), d = id.data;
+  const edge = new Uint8Array(img.n), r = Math.max(1, Math.round(img.scale * 1.5));
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x, l = L[i];
+    if ((x < w - 1 && L[i + 1] !== l) || (y < h - 1 && L[i + w] !== l)) edge[i] = 1;
+  }
+  // thicken the boundaries so they stay visible through paper at phone size
+  d.fill(255);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (!edge[y * w + x]) continue;
+    for (let yy = Math.max(0, y - r); yy <= Math.min(h - 1, y + r); yy++) for (let xx = Math.max(0, x - r); xx <= Math.min(w - 1, x + r); xx++) {
+      const p = (yy * w + xx) * 4; d[p] = d[p + 1] = d[p + 2] = 20;
+    }
+  }
+  return id;
+}
+function drawTrace() {
+  if (!img) return;
+  tcan.width = img.w; tcan.height = img.h;
+  const src = state.trace.src;
+  if (src === 'photo') tctx.putImageData(img.data, 0, 0);
+  else if (src === 'lines') tctx.putImageData(linesImage(), 0, 0);
+  else tctx.drawImage(view, 0, 0);
+  if (state.trace.grid) {
+    const cell = Math.min(img.w, img.h) / 4;
+    tctx.strokeStyle = 'rgba(230,40,120,.9)'; tctx.lineWidth = Math.max(1.5, img.scale * 1.5);
+    tctx.beginPath();
+    for (let x = cell; x < img.w - 1; x += cell) { tctx.moveTo(x, 0); tctx.lineTo(x, img.h); }
+    for (let y = cell; y < img.h - 1; y += cell) { tctx.moveTo(0, y); tctx.lineTo(img.w, y); }
+    tctx.stroke();
+  }
+}
+function applyTransform() {
+  tcan.style.width = tf.baseW + 'px';
+  tcan.style.transform = `translate(-50%,-50%) translate(${tf.x}px,${tf.y}px) rotate(${tf.r}rad) scale(${tf.s * (state.trace.flip ? -1 : 1)},${tf.s})`;
+}
+function fitTrace(reset) {
+  const W = innerWidth, H = innerHeight;
+  tf.baseW = Math.min(W * 0.92, H * 0.7 * img.w / img.h);
+  if (reset) { tf.x = 0; tf.y = 0; tf.s = 1; tf.r = 0; }
+  applyTransform();
+}
+function applyTraceSettings(key) {
+  if (trace.hidden) return;
+  const bg = state.trace.bg;
+  trace.classList.toggle('lightbox', bg === 'lightbox');
+  tcan.style.opacity = bg === 'camera' ? state.trace.opacity / 100 : 1;
+  if (key === 'trace.bg' || key === 'open') { if (bg === 'camera') startCamera(); else stopCamera(); }
+  if (key === 'trace.flip') applyTransform();
+}
+function showTraceMsg(text) { const m = $('#tmsg'); m.hidden = !text; m.textContent = text || ''; }
+async function startCamera() {
+  showTraceMsg('');
+  if (stream) return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { cameraUnavailable(); return; }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+    if (trace.hidden || state.trace.bg !== 'camera') { stopCamera(); return; }
+    cam.srcObject = stream; cam.hidden = false; await cam.play().catch(() => {});
+  } catch (e) { cameraUnavailable(); }
+}
+function cameraUnavailable() {
+  stopCamera();
+  showTraceMsg("The camera isn't available here. If your phone asked for camera access, allow it and switch to Camera again. Or use Lightbox: lay thin paper over the screen, lock the image, and trace.");
+}
+function stopCamera() { if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; } cam.srcObject = null; cam.hidden = true; showTraceMsg(''); }
+async function keepAwake() { try { if (navigator.wakeLock) wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {} }
+function setLocked(on) {
+  locked = on;
+  $('#tbarTop').hidden = on; $('#tbarBot').hidden = on; $('#unlockBtn').hidden = !on;
+}
+$('#traceBtn').addEventListener('click', () => {
+  trace.hidden = false; setLocked(false); drawTrace(); fitTrace(true); applyTraceSettings('open'); keepAwake();
+});
+$('#traceDone').addEventListener('click', () => {
+  trace.hidden = true; stopCamera();
+  try { if (wakeLock) wakeLock.release(); } catch (e) {} wakeLock = null;
+});
+$('#traceLock').addEventListener('click', () => setLocked(true));
+document.addEventListener('visibilitychange', () => { if (!document.hidden && !trace.hidden) keepAwake(); });
+
+/* press-and-hold to unlock, so a hand resting on the paper can't undo the lock */
+const unlockBtn = $('#unlockBtn'); let holdTimer = 0;
+unlockBtn.addEventListener('pointerdown', e => { e.preventDefault(); unlockBtn.classList.add('holding'); unlockBtn.textContent = 'Keep holding…'; holdTimer = setTimeout(() => { setLocked(false); resetUnlock(); }, 800); });
+const resetUnlock = () => { clearTimeout(holdTimer); unlockBtn.classList.remove('holding'); unlockBtn.textContent = 'Hold to unlock'; };
+['pointerup', 'pointercancel', 'pointerleave'].forEach(t => unlockBtn.addEventListener(t, resetUnlock));
+unlockBtn.addEventListener('contextmenu', e => e.preventDefault());
+
+/* drag to move, pinch to scale and rotate */
+const pts = new Map(); let g0 = null;
+function gestureStart() {
+  const p = [...pts.values()];
+  if (p.length === 1) g0 = { mx: p[0].x, my: p[0].y, x: tf.x, y: tf.y, s: tf.s, r: tf.r };
+  else if (p.length >= 2) {
+    const [a, b] = p;
+    g0 = { mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, dist: Math.hypot(b.x - a.x, b.y - a.y) || 1, ang: Math.atan2(b.y - a.y, b.x - a.x), x: tf.x, y: tf.y, s: tf.s, r: tf.r };
+  }
+}
+trace.addEventListener('pointerdown', e => {
+  if (locked || e.target.closest('.tbar, .lockbtn')) return;
+  trace.setPointerCapture(e.pointerId); pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); gestureStart();
+});
+trace.addEventListener('pointermove', e => {
+  if (locked || !pts.has(e.pointerId)) return;
+  pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  const p = [...pts.values()];
+  if (p.length === 1) { tf.x = g0.x + p[0].x - g0.mx; tf.y = g0.y + p[0].y - g0.my; }
+  else {
+    const [a, b] = p, mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    tf.s = Math.min(8, Math.max(0.15, g0.s * Math.hypot(b.x - a.x, b.y - a.y) / g0.dist));
+    tf.r = g0.r + Math.atan2(b.y - a.y, b.x - a.x) - g0.ang;
+    tf.x = g0.x + mx - g0.mx; tf.y = g0.y + my - g0.my;
+  }
+  applyTransform();
+});
+const ptEnd = e => { if (pts.delete(e.pointerId)) gestureStart(); };
+trace.addEventListener('pointerup', ptEnd); trace.addEventListener('pointercancel', ptEnd);
+trace.addEventListener('wheel', e => { if (locked) return; e.preventDefault(); tf.s = Math.min(8, Math.max(0.15, tf.s * Math.exp(-e.deltaY * 0.0015))); applyTransform(); }, { passive: false });
+trace.addEventListener('contextmenu', e => e.preventDefault());
+
+/* ---------- start ---------- */
+syncControls();
+let stored = null; try { stored = localStorage.getItem(PHOTO_KEY); } catch (e) {}
+if (stored) {
+  const im = new Image();
+  im.onload = () => setImage(imageToData(im).data, false);
+  im.onerror = () => setImage(paintSample(800, 600), true);
+  im.src = stored;
+} else setImage(paintSample(800, 600), true);
+})();
+</script>
+<script>
+if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+</script>
+</body>
+</html>
