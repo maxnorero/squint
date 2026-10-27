@@ -72,7 +72,20 @@ h1{font:800 26px/1 var(--f-display);letter-spacing:-.02em;margin:0}
 .stage-col{display:grid;gap:10px;min-width:0}
 .stage{background:var(--stage);border-radius:16px;padding:12px;display:grid;place-items:center;min-height:220px}
 .frame{position:relative;line-height:0;max-width:100%}
-#view{display:block;width:100%;height:auto;box-shadow:0 2px 10px rgba(0,0,0,.25);cursor:crosshair;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+#view{display:block;width:100%;height:auto;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.clip{position:relative;overflow:hidden;line-height:0;box-shadow:0 2px 10px rgba(0,0,0,.25);touch-action:none;cursor:crosshair;-webkit-user-select:none;user-select:none}
+.zoomer{transform-origin:0 0}
+.flipper{position:relative}
+.flipper.flip{transform:scaleX(-1)}
+.grid{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.grid path{fill:none;vector-effect:non-scaling-stroke}
+.grid .g0{stroke:rgba(0,0,0,.5);stroke-width:3}
+.grid .g1{stroke:rgba(255,255,255,.92);stroke-width:1.2}
+.grid .dg{stroke-dasharray:5 4}
+.zoomout{position:absolute;top:8px;right:8px;min-height:34px;padding:0 14px;border:0;border-radius:999px;background:rgba(0,0,0,.62);color:#fff;font:600 13px var(--f-ui)}
+.viewbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
+.viewbar .seg{max-width:none;flex:1 1 100%}
+.viewbar .switch{flex:1 1 120px}
 .badge{position:absolute;top:8px;left:8px;font:500 11px/1 var(--f-data);letter-spacing:.06em;text-transform:uppercase;background:rgba(0,0,0,.6);color:#fff;padding:6px 8px;border-radius:6px;pointer-events:none}
 .marker{position:absolute;width:28px;height:28px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.75),inset 0 0 0 1.5px rgba(0,0,0,.75);transform:translate(-50%,-50%);pointer-events:none}
 /* the loupe floats above the finger so the finger never hides what is being sampled */
@@ -153,6 +166,28 @@ input.track-value::-moz-range-track{background:linear-gradient(90deg,#111,#f2f2f
 .mine{display:flex;flex-wrap:wrap;gap:8px}
 .mine button{width:42px;height:42px;border-radius:10px;border:0;padding:0;box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}
 .mine button[aria-pressed="true"]{outline:3px solid var(--ink);outline-offset:2px}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+.btnrow .btn{flex:1 1 140px}
+.cmpchip{display:inline-flex;vertical-align:-3px;margin-right:6px;border-radius:4px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}
+.cmpchip i{display:block;width:14px;height:14px}
+.mixout{display:grid;gap:14px}
+.mixout.stale{opacity:.4}
+.recipe{display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;align-items:start}
+.mixchip{display:grid;grid-template-columns:1fr 1fr;height:64px;border-radius:12px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}
+.mixchip i{display:block}
+.rtitle{margin:0 0 4px;font-weight:600;font-size:14px}
+.recipe ul{margin:0;padding:0;list-style:none;display:grid;gap:4px;font-size:14px}
+.recipe li{display:flex;align-items:center;gap:8px}
+.recipe li i,.paint i{display:block;width:14px;height:14px;border-radius:4px;flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.2)}
+.recipe li b{font:500 13px var(--f-data);min-width:1.4em;text-align:right}
+.paints{border-top:1px solid var(--line);padding-top:8px}
+.paints summary{font-weight:600;font-size:14px;cursor:pointer;min-height:36px;display:flex;align-items:center}
+.paints-body{display:grid;gap:10px;padding-top:4px}
+.paintlist{display:flex;flex-wrap:wrap;gap:6px}
+.paint{display:inline-flex;align-items:center}
+.paint button[data-paint]{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 10px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:13px;font-weight:600}
+.paint button[aria-pressed="true"]{background:var(--raise);color:var(--fg);border-color:var(--fg)}
+.paint-x{border:0;background:none;color:var(--muted);font-size:18px;line-height:1;padding:0 6px;min-height:34px}
 
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--on-ink);padding:10px 16px;border-radius:12px;font-size:14px;z-index:90;max-width:calc(100% - 32px);box-shadow:0 4px 16px rgba(0,0,0,.25)}
 
@@ -196,11 +231,24 @@ input.track-value::-moz-range-track{background:linear-gradient(90deg,#111,#f2f2f
     <section class="stage-col" aria-label="Photo">
       <div class="stage" id="stage">
         <div class="frame" id="frame">
-          <canvas id="view" aria-label="Photo preview. Touch and drag to pick a color."></canvas>
+          <div class="clip" id="clip">
+            <div class="zoomer" id="zoomer">
+              <div class="flipper" id="flipper">
+                <canvas id="view" aria-label="Photo preview. Touch and drag to pick a color; pinch to zoom."></canvas>
+                <svg class="grid" id="grid" preserveAspectRatio="none" aria-hidden="true" hidden></svg>
+                <span class="marker" id="marker" hidden></span>
+              </div>
+            </div>
+          </div>
           <span class="badge" id="badge" hidden></span>
-          <span class="marker" id="marker" hidden></span>
+          <button class="zoomout" id="zoomOut" type="button" hidden>Fit</button>
           <canvas class="loupe" id="loupe" width="150" height="150" hidden></canvas>
         </div>
+      </div>
+      <div class="viewbar">
+        <div class="seg" data-key="view.grid" aria-label="Grid"><button type="button" data-val="0">No grid</button><button type="button" data-val="3">3×3</button><button type="button" data-val="4">4×4</button><button type="button" data-val="6">6×6</button></div>
+        <label class="switch" for="viewDiag" id="fieldDiag"><span>Diagonals</span><input type="checkbox" id="viewDiag" data-key="view.diag"></label>
+        <label class="switch" for="viewFlip"><span>Mirror</span><input type="checkbox" id="viewFlip" data-key="view.flip"></label>
       </div>
       <div class="stage-actions">
         <button class="btn small" id="compare" type="button">Hold to see original</button>
@@ -271,7 +319,7 @@ input.track-value::-moz-range-track{background:linear-gradient(90deg,#111,#f2f2f
       <div class="card" id="mode-values" role="tabpanel" aria-labelledby="tab-values" hidden>
         <div class="mode-head">
           <h2>Values</h2>
-          <p>Light and dark only. Two steps gives you a notan; three to five is a classic value study.</p>
+          <p>Light and dark only. Two steps gives you a notan; three to five is a classic value study. Tap a value below to see everywhere it falls.</p>
         </div>
         <label class="switch" for="valGray"><span>Smooth grayscale (no steps)</span><input type="checkbox" id="valGray" data-key="values.gray"></label>
         <div class="field" id="fieldSteps">
@@ -330,17 +378,33 @@ input.track-value::-moz-range-track{background:linear-gradient(90deg,#111,#f2f2f
               <dt>Value</dt><dd id="pkVal"></dd>
               <dt>Chroma</dt><dd id="pkChroma"></dd>
               <dt>Temp</dt><dd id="pkTemp"></dd>
+              <dt id="pkCmpDt" hidden>vs. last</dt><dd id="pkCmp" hidden><span class="cmpchip" aria-hidden="true"><i id="cmpA"></i><i id="cmpB"></i></span><span id="pkCmpText"></span></dd>
             </dl>
           </div>
         </div>
         <div class="pick-ctl">
           <div class="row"><span>Sample</span>
-            <div class="seg" data-key="pick.size"><button type="button" data-val="1">1 pixel</button><button type="button" data-val="5">Small</button><button type="button" data-val="11">Large</button></div>
+            <div class="seg" data-key="pick.size"><button type="button" data-val="1">1 pixel</button><button type="button" data-val="5">5×5</button><button type="button" data-val="11">11×11</button></div>
           </div>
           <div class="row"><span>Pick from</span>
             <div class="seg" data-key="pick.from"><button type="button" data-val="photo">Photo</button><button type="button" data-val="view">What you see</button></div>
           </div>
-          <button class="btn small" id="pkSave" type="button" disabled>Save to my colors</button>
+          <label class="switch" for="pkMatch"><span>Show where this color is</span><input type="checkbox" id="pkMatch" data-key="pick.match"></label>
+          <div class="field" id="matchField" hidden>
+            <div class="field-top"><label for="pkTol">Match</label><output id="pkTolOut"></output></div>
+            <input type="range" id="pkTol" data-key="pick.tol" min="2" max="30" step="1">
+            <div class="scale" aria-hidden="true"><span>Exact</span><span>Loose</span></div>
+            <p class="hint" id="matchOut"></p>
+          </div>
+          <div class="btnrow"><button class="btn small" id="pkSave" type="button" disabled>Save to my colors</button><button class="btn small primary" id="mixBtn" type="button" disabled>How to mix it</button></div>
+          <div class="mixout" id="mixOut" aria-live="polite" hidden></div>
+          <details class="paints"><summary>My paints ·&nbsp;<span id="paintCount"></span></summary>
+            <div class="paints-body">
+              <p class="hint">Tap a paint to use it or leave it out. The defaults are typical tube colors; for the closest mixes, photograph a swatch of each of your own paints and add it here with the picker.</p>
+              <div class="paintlist" id="paintList"></div>
+              <div class="row"><button class="btn small" id="paintAdd" type="button" disabled>Add picked color as a paint</button><button type="button" class="aux-btn" id="paintReset">Reset paints</button></div>
+            </div>
+          </details>
         </div>
         <div id="mineWrap" hidden>
           <div class="row"><span>My colors</span><button type="button" class="aux-btn" id="mineClear">Clear all</button></div>
@@ -395,7 +459,8 @@ const DEFAULTS = {
   blur: { amount: 35, bw: false },
   values: { gray: false, steps: 3, thr: null, shift: 0, smooth: 2 },
   temp: { ref: 'neutral', show: 'both', sens: 5 },
-  pick: { size: '5', from: 'photo' },
+  pick: { size: '5', from: 'photo', match: false, tol: 10 },
+  view: { grid: '0', diag: false, flip: false },
   trace: { bg: 'camera', src: 'view', opacity: 55, grid: false, flip: false }
 };
 const state = JSON.parse(JSON.stringify(DEFAULTS));
@@ -411,7 +476,7 @@ try {
   }
   if (!['amount', 'value', 'hue'].includes(state.colors.sort)) state.colors.sort = 'amount';
 } catch (e) {}
-const ui = { isolateColors: -1, isolateSimplify: -1, pick: null, fixed: null, original: false };
+const ui = { isolateColors: -1, isolateSimplify: -1, isolateValue: -1, pick: null, fixed: null, prev: null, original: false, mixOpen: false };
 let saveTimer = 0;
 function saveSettings() {
   clearTimeout(saveTimer);
@@ -966,15 +1031,18 @@ function renderValues() {
   }
   const n = v.steps, splits = valueSplits(V);
   const disp = []; for (let i = 0; i < n; i++) disp.push(n === 2 ? (i ? 96 : 10) : 8 + i * (88 / (n - 1)));
-  const tone = disp.map(grayOf), counts = new Uint32Array(n);
+  const tone = disp.map(grayOf), counts = new Uint32Array(n), w = img.w;
+  if (ui.isolateValue >= n) ui.isolateValue = -1;
+  const iso = ui.isolateValue;
   for (let i = 0, p = 0; i < img.n; i++, p += 4) {
     const L = lab[i * 3]; let band = 0;
     while (band < n - 1 && L >= splits[band]) band++;
     counts[band]++;
-    d[p] = d[p + 1] = d[p + 2] = tone[band]; d[p + 3] = 255;
+    // with one value picked out, every other value turns to light stripes
+    d[p] = d[p + 1] = d[p + 2] = iso < 0 || band === iso ? tone[band] : ((i % w + (i / w | 0)) >> 3) & 1 ? 200 : 178; d[p + 3] = 255;
   }
   const names = n === 2 ? ['Dark', 'Light'] : null;
-  $('#valSw').innerHTML = disp.map((L, i) => `<div class="sw"><span class="chip" style="background:rgb(${tone[i]},${tone[i]},${tone[i]})"></span><span class="meta"><b>${names ? names[i] : 'Value ' + (L / 10).toFixed(1)}</b>${Math.round(counts[i] / img.n * 100)}% of picture</span></div>`).join('');
+  $('#valSw').innerHTML = disp.map((L, i) => `<button type="button" class="sw" data-which="values" data-idx="${i}" aria-pressed="${iso === i}"><span class="chip" style="background:rgb(${tone[i]},${tone[i]},${tone[i]})"></span><span class="meta"><b>${names ? names[i] : 'Value ' + valueOfL(L).toFixed(1)}</b>${Math.round(counts[i] / img.n * 100)}% of picture</span></button>`).join('');
   if (n === 2) {
     const t = v.thr == null ? V.otsu : v.thr, thr = $('#valThr');
     if (document.activeElement !== thr) thr.value = t;
@@ -1021,7 +1089,7 @@ function drawSwatches(grid, bar, list, iso, which, key) {
     const h = hex(...e.rgb), g = grayOf(e.L);
     return `<button type="button" class="sw" data-idx="${e.idx}" data-which="${which}" aria-pressed="${iso === e.idx}" aria-label="${colorName(e.L, e.a, e.b)}, ${h}, ${Math.round(e.share * 100)} percent">
       <span class="chip" style="background:${h}"><span class="vdot" style="background:rgb(${g},${g},${g})"></span></span>
-      <span class="meta"><b>${colorName(e.L, e.a, e.b)}</b>${h}<br>${Math.max(1, Math.round(e.share * 100))}% · V ${(e.L / 10).toFixed(1)}</span></button>`;
+      <span class="meta"><b>${colorName(e.L, e.a, e.b)}</b>${h}<br>${Math.max(1, Math.round(e.share * 100))}% · V ${valueOfL(e.L).toFixed(1)}</span></button>`;
   }).join('');
   updateNear();
 }
@@ -1049,8 +1117,9 @@ function render() {
     return;
   }
   RENDER[state.mode]();
-  vctx.putImageData(outData, 0, 0);
-  renderReadout();
+  const shown = state.pick.match ? matchPass() : null;
+  vctx.putImageData(shown || outData, 0, 0);
+  renderReadout(); updateNear();
   if (!$('#trace').hidden) drawTrace();
 }
 // Get the slow analysis done while the photo is just being looked at, so tab switches are instant.
@@ -1064,17 +1133,30 @@ function warmUp() {
   }, 700);
 }
 
+/* ---------- value (Munsell) ---------- */
+// ASTM D1535 gives the luminance factor Y (%) of each Munsell value; inverted by table, so a reading matches a
+// painter's value scale instead of being L*/10.
+const astmY = V => V * (1.1914 + V * (-0.22533 + V * (0.23352 + V * (-0.020484 + V * 0.00081939))));
+const MV = new Float32Array(4097);
+{ let V = 0; for (let i = 0; i <= 4096; i++) { const Y = i / 4096 * 100; while (V < 10 && astmY(V + 0.001) <= Y) V += 0.001; MV[i] = Math.min(10, V); } }
+const valueOfY = Y => MV[Y <= 0 ? 0 : Y >= 1 ? 4096 : Math.round(Y * 4096)];
+const valueOfL = L => valueOfY(fInv((L + 16) / 116));
+const valueOfRgb = (r, g, b) => valueOfY(0.2126 * LIN[r] + 0.7152 * LIN[g] + 0.0722 * LIN[b]);
+const grayOfV = V => G12[Math.min(4095, Math.round(astmY(V) / 100 * 4095))];
+
 /* ---------- color picker ---------- */
+const pickHalf = fromView => Math.round((+state.pick.size - 1) / 2 * (fromView ? img.w / img.hi.w : 1));
+// Reads the 2000 px copy of the photo (or the study view), averaging in linear light the way paint mixes optically.
 function samplePick() {
   if (ui.fixed) return ui.fixed;
   if (!ui.pick || !img) return null;
-  const s = state.pick.from === 'view' && !ui.original ? outData.data : img.rgba, half = (+state.pick.size - 1) >> 1;
-  const x0 = Math.floor(ui.pick.fx * img.w), y0 = Math.floor(ui.pick.fy * img.h);
+  const fromView = state.pick.from === 'view' && !ui.original, half = pickHalf(fromView);
+  const W = fromView ? img.w : img.hi.w, H = fromView ? img.h : img.hi.h, s = fromView ? outData.data : img.hi.rgba;
+  const x0 = Math.floor(ui.pick.fx * W), y0 = Math.floor(ui.pick.fy * H);
   let r = 0, g = 0, b = 0, c = 0;
-  // average in linear light so a mix of light and dark pixels reads like paint would mix optically
   for (let y = y0 - half; y <= y0 + half; y++) for (let x = x0 - half; x <= x0 + half; x++) {
-    if (x < 0 || y < 0 || x >= img.w || y >= img.h) continue;
-    const p = (y * img.w + x) * 4; r += LIN[s[p]]; g += LIN[s[p + 1]]; b += LIN[s[p + 2]]; c++;
+    if (x < 0 || y < 0 || x >= W || y >= H) continue;
+    const p = (y * W + x) * 4; r += LIN[s[p]]; g += LIN[s[p + 1]]; b += LIN[s[p + 2]]; c++;
   }
   return [G12[(r / c * 4095 + 0.5) | 0], G12[(g / c * 4095 + 0.5) | 0], G12[(b / c * 4095 + 0.5) | 0]];
 }
@@ -1090,30 +1172,56 @@ function updateNear() {
     document.querySelectorAll(`#${which === 'colors' ? 'colSw' : 'simSw'} .sw`).forEach(b => b.classList.toggle('near', +b.dataset.idx === near));
   }
 }
+// "Show where this color is": everything further than the tolerance from the picked color fades out.
+let matchImg = null;
+function matchPass() {
+  const rgb = samplePick(); if (!rgb) return null;
+  if (!matchImg || matchImg.width !== img.w || matchImg.height !== img.h) matchImg = new ImageData(img.w, img.h);
+  const [L, a, b] = rgbToLab(...rgb), lab = getBlur(1).lab, d = matchImg.data, t2 = state.pick.tol * state.pick.tol;
+  d.set(outData.data); let hit = 0;
+  for (let i = 0, p = 0, q = 0; i < img.n; i++, p += 4, q += 3) {
+    const x = lab[q] - L, y = lab[q + 1] - a, z = lab[q + 2] - b;
+    if (x * x + y * y + z * z <= t2) hit++; else fade(d, p, d[p], d[p + 1], d[p + 2]);
+  }
+  $('#matchOut').textContent = `Found in ${hit / img.n < 0.005 && hit ? 'under 1' : Math.round(hit / img.n * 100)}% of the picture`;
+  return matchImg;
+}
 const vscale = $('#vscale');
-for (let v = 0; v <= 10; v++) { const g = grayOf(v * 10), i = document.createElement('i'); i.style.background = `rgb(${g},${g},${g})`; vscale.insertBefore(i, $('#pkTick')); }
+for (let v = 0; v <= 10; v++) { const g = grayOfV(v), i = document.createElement('i'); i.style.background = `rgb(${g},${g},${g})`; vscale.insertBefore(i, $('#pkTick')); }
+function describeDiff(cur, prev) {
+  const [L1, a1, b1] = rgbToLab(...cur), [L2, a2, b2] = rgbToLab(...prev);
+  const dv = valueOfRgb(...cur) - valueOfRgb(...prev), dt = warmth(a1, b1) - warmth(a2, b2), dc = Math.hypot(a1, b1) - Math.hypot(a2, b2);
+  const out = [Math.abs(dv) < 0.15 ? 'Same value' : `${Math.abs(dv).toFixed(1)} ${dv > 0 ? 'lighter' : 'darker'}`];
+  if (Math.abs(dt) >= 4) out.push(dt > 0 ? 'warmer' : 'cooler');
+  if (Math.abs(dc) >= 4) out.push(dc > 0 ? 'more intense' : 'duller');
+  return out.join(' · ');
+}
 function renderReadout() {
   const rgb = samplePick(), out = $('#pickOut');
-  $('#pickHint').hidden = !!rgb; out.hidden = !rgb; $('#pkSave').disabled = !rgb;
+  $('#pickHint').hidden = !!rgb; out.hidden = !rgb; $('#pkSave').disabled = $('#mixBtn').disabled = $('#paintAdd').disabled = !rgb;
+  $('#matchField').hidden = !state.pick.match;
   if (!rgb) {
-    $('#pickHint').textContent = 'Touch the photo and drag to read any color: a magnifier shows exactly what is being sampled.' + (img && img.sample ? ' This is a sample landscape. Tap Open photo to study one of your own.' : '');
+    $('#pickHint').textContent = 'Touch the photo and drag to read any color; a magnifier shows exactly what is being sampled. Pinch with two fingers to zoom, double-tap to zoom in or back out.' + (img && img.sample ? ' This is a sample landscape. Tap Open photo to study one of your own.' : '');
     renderMine(); return;
   }
-  const [L, a, b] = rgbToLab(...rgb), h = hex(...rgb), [H, S, B] = rgbToHsb(...rgb), g = grayOf(L);
-  const chroma = Math.hypot(a, b), hue = (Math.atan2(b, a) * 180 / Math.PI + 360) % 360;
+  const [L, a, b] = rgbToLab(...rgb), h = hex(...rgb), [H, S, B] = rgbToHsb(...rgb), g = grayOf(L), V = valueOfRgb(...rgb);
+  const chroma = Math.hypot(a, b);
   let t = warmth(a, b);
   if (state.temp.ref === 'average' && cache.temp) t -= cache.temp.mean;
   const tw = Math.abs(t) < 6 ? 'Neutral' : (Math.abs(t) < 18 ? 'Slightly ' : '') + (t > 0 ? 'warm' : 'cool');
   const chip = $('#pkChip'), gray = $('#pkGray');
   chip.style.background = h; gray.style.background = `rgb(${g},${g},${g})`; gray.style.color = L > 55 ? '#111' : '#f4f4f4';
   $('#pkName').textContent = colorName(L, a, b);
-  $('#pkTick').style.left = (Math.max(0, Math.min(100, L)) / 100 * (10 / 11) * 100 + 100 / 22) + '%';
+  $('#pkTick').style.left = (V / 10 * (10 / 11) * 100 + 100 / 22) + '%';
   $('#pkHex').textContent = h;
   $('#pkRgb').textContent = rgb.join(', ');
   $('#pkHsb').textContent = `${H}°, ${S}%, ${B}%`;
-  $('#pkVal').textContent = `${(L / 10).toFixed(1)} of 10`;
+  $('#pkVal').textContent = `${V.toFixed(1)} of 10`;
   $('#pkChroma').textContent = `${chroma.toFixed(0)} · ${chroma < 6 ? 'neutral' : chroma < 15 ? 'very low' : chroma < 30 ? 'low' : chroma < 52 ? 'medium' : chroma < 72 ? 'high' : 'very high'}`;
   $('#pkTemp').textContent = tw[0].toUpperCase() + tw.slice(1) + (state.temp.ref === 'average' ? ' vs. photo' : '');
+  const prev = ui.prev && hex(...ui.prev) !== h ? ui.prev : null;
+  $('#pkCmpDt').hidden = $('#pkCmp').hidden = !prev;
+  if (prev) { $('#cmpA').style.background = hex(...prev); $('#cmpB').style.background = h; $('#pkCmpText').textContent = describeDiff(rgb, prev); }
   $('#pkSave').textContent = mine.includes(h) ? 'Remove from my colors' : 'Save to my colors';
   renderMine(h);
 }
@@ -1124,59 +1232,284 @@ function renderMine(cur) {
   $('#mineWrap').hidden = !mine.length;
   $('#mine').innerHTML = mine.map(h => `<button type="button" data-mine="${h}" style="background:${h}" aria-label="${h}" aria-pressed="${ui.fixed && h === cur}"></button>`).join('');
 }
-const loupe = $('#loupe'), lctx = loupe.getContext('2d'), LZ = 15; // the loupe shows 15×15 photo pixels
+const loupe = $('#loupe'), lctx = loupe.getContext('2d');
 function drawLoupe() {
   if (!ui.pick) return;
-  const src = state.pick.from === 'view' ? view : img.canvas;
-  const cx = Math.floor(ui.pick.fx * img.w), cy = Math.floor(ui.pick.fy * img.h), S = loupe.width, cell = S / LZ;
+  const fromView = state.pick.from === 'view', src = fromView ? view : img.hi.canvas, W = fromView ? img.w : img.hi.w, H = fromView ? img.h : img.hi.h;
+  const size = 2 * pickHalf(fromView) + 1, LZ = Math.max(15, size + 6 | 1), S = loupe.width, cell = S / LZ;
+  const cx = Math.floor(ui.pick.fx * W), cy = Math.floor(ui.pick.fy * H);
+  lctx.setTransform(state.view.flip ? -1 : 1, 0, 0, 1, state.view.flip ? S : 0, 0);
   lctx.imageSmoothingEnabled = false;
   lctx.fillStyle = '#777'; lctx.fillRect(0, 0, S, S);
   // clip the source rect by hand: Safari draws nothing when it runs off the image
-  const sx = cx - (LZ >> 1), sy = cy - (LZ >> 1), x0 = Math.max(0, sx), y0 = Math.max(0, sy), x1 = Math.min(img.w, sx + LZ), y1 = Math.min(img.h, sy + LZ);
-  lctx.drawImage(src, x0, y0, x1 - x0, y1 - y0, (x0 - sx) * cell, (y0 - sy) * cell, (x1 - x0) * cell, (y1 - y0) * cell);
-  const size = Math.min(LZ, +state.pick.size), o = (S - size * cell) / 2;
+  const sx = cx - (LZ >> 1), sy = cy - (LZ >> 1), x0 = Math.max(0, sx), y0 = Math.max(0, sy), x1 = Math.min(W, sx + LZ), y1 = Math.min(H, sy + LZ);
+  if (x1 > x0 && y1 > y0) lctx.drawImage(src, x0, y0, x1 - x0, y1 - y0, (x0 - sx) * cell, (y0 - sy) * cell, (x1 - x0) * cell, (y1 - y0) * cell);
+  const o = (S - size * cell) / 2;
   lctx.lineWidth = 3; lctx.strokeStyle = 'rgba(0,0,0,.8)'; lctx.strokeRect(o, o, size * cell, size * cell);
   lctx.lineWidth = 1.5; lctx.strokeStyle = '#fff'; lctx.strokeRect(o, o, size * cell, size * cell);
+  lctx.setTransform(1, 0, 0, 1, 0, 0);
   const rgb = samplePick(); if (rgb) loupe.style.borderColor = hex(...rgb);
 }
-let pickRaf = 0, picking = -1;
-function movePick(e) {
-  const r = view.getBoundingClientRect();
-  ui.fixed = null;
-  ui.pick = { fx: Math.min(0.999, Math.max(0, (e.clientX - r.left) / r.width)), fy: Math.min(0.999, Math.max(0, (e.clientY - r.top) / r.height)) };
-  const m = $('#marker'); m.hidden = false; m.style.left = ui.pick.fx * 100 + '%'; m.style.top = ui.pick.fy * 100 + '%';
-  loupe.style.left = ui.pick.fx * 100 + '%'; loupe.style.top = ui.pick.fy * 100 + '%';
-  // above the finger when there is room on screen, otherwise beside it (never below, where the hand is)
-  const side = e.clientY < 175 ? (ui.pick.fx < 0.5 ? 'right' : 'left') : '';
-  loupe.classList.toggle('right', side === 'right'); loupe.classList.toggle('left', side === 'left');
-  if (!pickRaf) pickRaf = requestAnimationFrame(() => { pickRaf = 0; drawLoupe(); renderReadout(); updateNear(); });
+
+/* ---------- zoom, pan and picking on the photo ----------
+   One finger picks a color, two fingers pinch and pan, a double-tap zooms in there or back out. */
+const frame = $('#frame'), clip = $('#clip'), zoomer = $('#zoomer'), flipper = $('#flipper'), marker = $('#marker');
+const zv = { z: 1, x: 0, y: 0 };
+function applyZoom() {
+  const W = clip.clientWidth, H = clip.clientHeight;
+  zv.z = Math.min(10, Math.max(1, zv.z));
+  zv.x = Math.min(0, Math.max(W - W * zv.z, zv.x)); zv.y = Math.min(0, Math.max(H - H * zv.z, zv.y));
+  if (zv.z === 1) zv.x = zv.y = 0;
+  zoomer.style.transform = zv.z === 1 ? '' : `translate(${zv.x}px,${zv.y}px) scale(${zv.z})`;
+  marker.style.transform = `translate(-50%,-50%) scale(${1 / zv.z})`;
+  $('#zoomOut').hidden = zv.z === 1;
 }
-view.addEventListener('pointerdown', e => {
-  if (!img || picking >= 0) return;
-  e.preventDefault(); picking = e.pointerId;
-  try { view.setPointerCapture(e.pointerId); } catch (err) {}
-  loupe.hidden = false; movePick(e);
+function zoomAt(px, py, z) {
+  z = Math.min(10, Math.max(1, z));
+  const k = z / zv.z; zv.x = px - (px - zv.x) * k; zv.y = py - (py - zv.y) * k; zv.z = z; applyZoom();
+}
+const resetZoom = () => { zv.z = 1; applyZoom(); };
+$('#zoomOut').addEventListener('click', resetZoom);
+let pickRaf = 0, picking = false, pinch = null, lastTap = null, lockPick = false;
+const touches = new Map();
+function pickUpdate() {
+  if (!pickRaf) pickRaf = requestAnimationFrame(() => {
+    pickRaf = 0; drawLoupe();
+    if (state.pick.match) render(); else { renderReadout(); updateNear(); }
+  });
+}
+function movePick(e) {
+  const r = view.getBoundingClientRect(), fr = frame.getBoundingClientRect();
+  let fx = (e.clientX - r.left) / r.width; if (state.view.flip) fx = 1 - fx;
+  ui.fixed = null;
+  ui.pick = { fx: Math.min(0.9995, Math.max(0, fx)), fy: Math.min(0.9995, Math.max(0, (e.clientY - r.top) / r.height)) };
+  marker.hidden = false; marker.style.left = ui.pick.fx * 100 + '%'; marker.style.top = ui.pick.fy * 100 + '%';
+  loupe.style.left = (e.clientX - fr.left) + 'px'; loupe.style.top = (e.clientY - fr.top) + 'px';
+  // above the finger when there is room on screen, otherwise beside it (never below, where the hand is)
+  const side = e.clientY < 175 ? ((e.clientX - fr.left) / fr.width < 0.5 ? 'right' : 'left') : '';
+  loupe.classList.toggle('right', side === 'right'); loupe.classList.toggle('left', side === 'left');
+  $('#mixOut').classList.add('stale');
+  pickUpdate();
+}
+function startPick(e) {
+  const cur = samplePick(); if (cur) ui.prev = cur;
+  picking = true; loupe.hidden = false; movePick(e);
+}
+function endPick() {
+  if (!picking) return;
+  picking = false; loupe.hidden = true;
+  if (ui.mixOpen) runMix();
+}
+function pinchState() {
+  const [a, b] = [...touches.values()], r = clip.getBoundingClientRect();
+  return { mx: (a.x + b.x) / 2 - r.left, my: (a.y + b.y) / 2 - r.top, d: Math.hypot(b.x - a.x, b.y - a.y) || 1 };
+}
+clip.addEventListener('pointerdown', e => {
+  if (!img) return;
+  e.preventDefault();
+  try { clip.setPointerCapture(e.pointerId); } catch (err) {}
+  touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (touches.size === 1) {
+    lockPick = false;
+    const now = performance.now();
+    if (lastTap && now - lastTap.t < 320 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30) {
+      const r = clip.getBoundingClientRect();
+      if (zv.z > 1) resetZoom(); else zoomAt(e.clientX - r.left, e.clientY - r.top, 3);
+      lastTap = null; lockPick = true; return;
+    }
+    lastTap = { t: now, x: e.clientX, y: e.clientY };
+    startPick(e);
+  } else if (touches.size === 2) {
+    endPick(); lockPick = true; lastTap = null;
+    pinch = Object.assign(pinchState(), { z: zv.z, x: zv.x, y: zv.y });
+  }
 });
-view.addEventListener('pointermove', e => { if (e.pointerId === picking) movePick(e); });
-const endPick = e => { if (e.pointerId !== picking) return; picking = -1; loupe.hidden = true; };
-['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => view.addEventListener(t, endPick));
-view.addEventListener('contextmenu', e => e.preventDefault());
+clip.addEventListener('pointermove', e => {
+  if (!touches.has(e.pointerId)) return;
+  touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pinch && touches.size >= 2) {
+    const p = pinchState(), z = Math.min(10, Math.max(1, pinch.z * p.d / pinch.d));
+    // keep the photo point that started under the fingers under the fingers
+    const cx = (pinch.mx - pinch.x) / pinch.z, cy = (pinch.my - pinch.y) / pinch.z;
+    zv.z = z; zv.x = p.mx - cx * z; zv.y = p.my - cy * z; applyZoom();
+  } else if (picking && !lockPick) movePick(e);
+});
+const lift = e => {
+  if (!touches.delete(e.pointerId)) return;
+  if (touches.size < 2) pinch = null;
+  if (!touches.size) endPick();
+};
+['pointerup', 'pointercancel'].forEach(t => clip.addEventListener(t, lift));
+clip.addEventListener('wheel', e => {
+  if (!img) return; e.preventDefault();
+  const r = clip.getBoundingClientRect(); zoomAt(e.clientX - r.left, e.clientY - r.top, zv.z * Math.exp(-e.deltaY * 0.0015));
+}, { passive: false });
+clip.addEventListener('contextmenu', e => e.preventDefault());
+
+/* ---------- grid ---------- */
+function gridPaths() {
+  const n = +state.view.grid, w = img.w, h = img.h; let lines = '', diag = '';
+  for (let i = 1; i < n; i++) { const x = (w * i / n).toFixed(1), y = (h * i / n).toFixed(1); lines += `M${x} 0V${h}M0 ${y}H${w}`; }
+  if (state.view.diag) for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+    const x0 = w * i / n, x1 = w * (i + 1) / n, y0 = h * j / n, y1 = h * (j + 1) / n;
+    diag += `M${x0.toFixed(1)} ${y0.toFixed(1)}L${x1.toFixed(1)} ${y1.toFixed(1)}M${x1.toFixed(1)} ${y0.toFixed(1)}L${x0.toFixed(1)} ${y1.toFixed(1)}`;
+  }
+  return { lines, diag };
+}
+function drawGrid() {
+  const svg = $('#grid'), on = !!img && +state.view.grid > 0;
+  svg.hidden = !on; $('#fieldDiag').hidden = !(+state.view.grid);
+  flipper.classList.toggle('flip', !!state.view.flip);
+  if (!on) return;
+  const { lines, diag } = gridPaths();
+  svg.setAttribute('viewBox', `0 0 ${img.w} ${img.h}`);
+  svg.innerHTML = `<path class="g0" d="${lines}${diag}"/><path class="g1" d="${lines}"/>` + (diag ? `<path class="g1 dg" d="${diag}"/>` : '');
+}
+$('#mineClear').addEventListener('click', () => {
+  if (!confirm('Remove all of your saved colors?')) return;
+  mine = []; ui.fixed = null; marker.hidden = !ui.pick; saveMine(); renderReadout();
+});
 $('#pkSave').addEventListener('click', () => {
   const rgb = samplePick(); if (!rgb) return;
   const h = hex(...rgb), i = mine.indexOf(h);
-  if (i >= 0) { mine.splice(i, 1); if (ui.fixed) { ui.fixed = null; $('#marker').hidden = !ui.pick; } toast('Removed ' + h); }
+  if (i >= 0) { mine.splice(i, 1); if (ui.fixed) { ui.fixed = null; marker.hidden = !ui.pick; } toast('Removed ' + h); }
   else { mine.unshift(h); mine = mine.slice(0, 40); toast('Saved ' + h); }
   saveMine(); renderReadout(); updateNear();
-});
-$('#mineClear').addEventListener('click', () => {
-  if (!confirm('Remove all of your saved colors?')) return;
-  mine = []; ui.fixed = null; $('#marker').hidden = !ui.pick; saveMine(); renderReadout();
 });
 $('#pkCopy').addEventListener('click', () => {
   const text = $('#pkHex').textContent;
   try { navigator.clipboard.writeText(text).then(() => toast('Copied ' + text), () => toast(text + ' (copy is blocked here)')); }
   catch (err) { toast(text + ' (copy is blocked here)'); }
 });
+
+/* ---------- paint mixing ----------
+   Recipes use spectral.js (Kubelka–Munk pigment mixing, MIT licence), loaded the first time it's needed.
+   Every mix of up to three paints, or white plus three, is tried on a coarse grid of parts; the best few
+   are then fine-tuned one part at a time. */
+const PAINTS_KEY = 'squint.paints.v1';
+const DEFAULT_PAINTS = [
+  ['Titanium White', '#F7F7F2', 1], ['Lemon Yellow', '#F4E934', 0], ['Cadmium Yellow', '#FEEC00', 1], ['Yellow Ochre', '#C8922E', 1],
+  ['Cadmium Orange', '#FF6900', 0], ['Cadmium Red', '#FF2702', 1], ['Alizarin Crimson', '#6F1426', 1], ['Quinacridone Magenta', '#80022E', 0],
+  ['Ultramarine Blue', '#190059', 1], ['Cobalt Blue', '#002185', 0], ['Phthalo Blue', '#0D1B44', 0], ['Phthalo Green', '#003C32', 0],
+  ['Sap Green', '#6B9404', 0], ['Burnt Sienna', '#7B4800', 1], ['Raw Umber', '#55452F', 0], ['Burnt Umber', '#4A2E1E', 1], ['Ivory Black', '#1C1B1A', 0]
+];
+const defaultPaints = () => DEFAULT_PAINTS.map(([name, hex, on]) => ({ name, hex, on: !!on }));
+let paints = null;
+try { paints = JSON.parse(localStorage.getItem(PAINTS_KEY) || 'null'); } catch (e) {}
+if (!Array.isArray(paints) || !paints.length) paints = defaultPaints();
+const savePaints = () => { try { localStorage.setItem(PAINTS_KEY, JSON.stringify(paints)); } catch (e) {} };
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+function renderPaints() {
+  $('#paintCount').textContent = paints.filter(p => p.on).length + ' in use';
+  $('#paintList').innerHTML = paints.map((p, i) => `<span class="paint"><button type="button" data-paint="${i}" aria-pressed="${p.on}"><i style="background:${p.hex}"></i>${esc(p.name)}</button>${p.custom ? `<button type="button" class="paint-x" data-paint-x="${i}" aria-label="Remove ${esc(p.name)}">×</button>` : ''}</span>`).join('');
+}
+let spectralP = null;
+function loadSpectral() {
+  return spectralP || (spectralP = new Promise((res, rej) => {
+    if (window.spectral) { res(window.spectral); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/spectral.js@3.0.0/spectral.min.js';
+    s.onload = () => window.spectral ? res(window.spectral) : rej(new Error('missing'));
+    s.onerror = () => { spectralP = null; rej(new Error('offline')); };
+    document.head.appendChild(s);
+  }));
+}
+const gcd = (a, b) => b ? gcd(b, a % b) : a;
+function compositions(k, max) {
+  const out = [], cur = [];
+  const rec = (left, sum) => {
+    if (!left) { if (cur.reduce(gcd) === 1) out.push(cur.slice()); return; }
+    for (let v = 1; sum + v + left - 1 <= max; v++) { cur.push(v); rec(left - 1, sum + v); cur.pop(); }
+  };
+  rec(k, 0); return out;
+}
+const COMP = { 2: compositions(2, 12), 3: compositions(3, 8), 4: compositions(4, 7) };
+let mixToken = 0;
+async function findMixes(rgb) {
+  const S = await loadSpectral(), token = ++mixToken;
+  const P = paints.filter(p => p.on).map(p => ({ name: p.name, hex: p.hex, c: new S.Color(p.hex) })), n = P.length;
+  if (!n) return [];
+  const T = new S.Color(rgb).OKLab;
+  const dist = (ids, parts) => {
+    const m = ids.length === 1 ? P[ids[0]].c : S.mix(...ids.map((k, j) => [P[k].c, parts[j]])), o = m.OKLab;
+    return Math.hypot(o[0] - T[0], o[1] - T[1], o[2] - T[2]) * 100;
+  };
+  const best = new Map(); let count = 0;
+  const tryMix = async (ids, parts) => {
+    const d = dist(ids, parts), key = ids.join();
+    const b = best.get(key); if (!b || d < b.d) best.set(key, { ids, parts, d });
+    if (++count % 300 === 0) { await new Promise(r => setTimeout(r, 0)); if (token !== mixToken) throw new Error('stale'); }
+  };
+  const white = P.findIndex(p => /white/i.test(p.name));
+  for (let a = 0; a < n; a++) await tryMix([a], [1]);
+  for (let a = 0; a < n; a++) for (let b = a + 1; b < n; b++) for (const c of COMP[2]) await tryMix([a, b], c);
+  for (let a = 0; a < n; a++) for (let b = a + 1; b < n; b++) for (let c = b + 1; c < n; c++) for (const p of COMP[3]) await tryMix([a, b, c], p);
+  if (white >= 0) {
+    const o = [...Array(n).keys()].filter(i => i !== white);
+    for (let a = 0; a < o.length; a++) for (let b = a + 1; b < o.length; b++) for (let c = b + 1; c < o.length; c++) for (const p of COMP[4]) await tryMix([white, o[a], o[b], o[c]], p);
+  }
+  // fine-tune the best few: double the parts, then nudge one part at a time while it helps
+  const top = [...best.values()].sort((x, y) => x.d - y.d).slice(0, 10);
+  for (const r of top) {
+    if (r.ids.length === 1) continue;
+    let parts = r.parts.map(v => v * 3), d = r.d;
+    for (let it = 0; it < 40; it++) {
+      let moved = false;
+      for (let j = 0; j < parts.length; j++) for (const step of [1, -1]) {
+        const q = parts.slice(); q[j] += step; if (q[j] < 1) continue;
+        const dq = dist(r.ids, q); if (dq < d - 0.01) { d = dq; parts = q; moved = true; }
+      }
+      if (!moved) break;
+    }
+    const g = parts.reduce(gcd); r.parts = parts.map(v => v / g); r.d = d;
+    if (token !== mixToken) throw new Error('stale');
+  }
+  const all = [...best.values()].sort((x, y) => x.d - y.d), first = all[0], out = [first];
+  // also offer a simpler mix with fewer paints, when it is not much worse
+  const simpler = all.find(r => r.ids.length < first.ids.length && r.d < first.d + 5);
+  if (simpler) out.push(simpler);
+  return out.map(r => {
+    const m = r.ids.length === 1 ? P[r.ids[0]].c : S.mix(...r.ids.map((k, j) => [P[k].c, r.parts[j]]));
+    return { d: r.d, hex: m.toString(), items: r.ids.map((k, j) => ({ name: P[k].name, hex: P[k].hex, parts: r.parts[j] })).sort((x, y) => y.parts - x.parts) };
+  });
+}
+const closeness = d => d < 2 ? 'Spot on' : d < 4 ? 'Very close' : d < 7 ? 'Close' : d < 12 ? 'Rough match' : 'Out of reach of these paints';
+async function runMix() {
+  const rgb = samplePick(), box = $('#mixOut'); if (!rgb) return;
+  ui.mixOpen = true; box.hidden = false; box.classList.remove('stale');
+  box.innerHTML = '<p class="hint">Working out mixes…</p>';
+  try {
+    const res = await findMixes(rgb), h = hex(...rgb);
+    if (!res.length) { box.innerHTML = '<p class="hint">Turn on some paints under My paints first.</p>'; return; }
+    box.innerHTML = res.map((r, i) => `<div class="recipe">
+      <span class="mixchip" aria-hidden="true"><i style="background:${h}"></i><i style="background:${r.hex}"></i></span>
+      <div><p class="rtitle">${i ? 'Simpler' : 'Closest'} · ${closeness(r.d)}</p>
+      <ul>${r.items.map(it => `<li><i style="background:${it.hex}"></i><b>${it.parts}</b> ${it.parts === 1 ? 'part' : 'parts'} ${esc(it.name)}</li>`).join('')}</ul></div></div>`).join('')
+      + `<p class="hint">Left half: your color. Right half: the predicted mix. Parts are rough amounts by volume; mix, compare, then adjust.${res[0].d >= 12 ? ' Try turning on more paints under My paints.' : ''}</p>`;
+  } catch (err) {
+    if (err && err.message === 'stale') return;
+    box.innerHTML = '<p class="hint">The mixing model could not load. It needs a connection the first time; after that it works offline.</p>';
+  }
+}
+$('#mixBtn').addEventListener('click', () => { if (ui.mixOpen && !$('#mixOut').classList.contains('stale')) { ui.mixOpen = false; $('#mixOut').hidden = true; mixToken++; } else runMix(); });
+$('#paintList').addEventListener('click', e => {
+  const x = e.target.closest('[data-paint-x]');
+  if (x) { paints.splice(+x.dataset.paintX, 1); savePaints(); renderPaints(); if (ui.mixOpen) runMix(); return; }
+  const b = e.target.closest('[data-paint]'); if (!b) return;
+  const p = paints[+b.dataset.paint]; p.on = !p.on; savePaints(); renderPaints(); if (ui.mixOpen) runMix();
+});
+$('#paintAdd').addEventListener('click', () => {
+  const rgb = samplePick(); if (!rgb) return;
+  const name = (prompt('Name this paint (pick it from a photo of a swatch of your real paint for the best mixes):', 'My paint') || '').trim().slice(0, 40);
+  if (!name) return;
+  paints.push({ name, hex: hex(...rgb), on: true, custom: true }); savePaints(); renderPaints(); toast('Added ' + name);
+  if (ui.mixOpen) runMix();
+});
+$('#paintReset').addEventListener('click', () => {
+  if (!confirm('Go back to the default paints? Paints you added will be removed.')) return;
+  paints = defaultPaints(); savePaints(); renderPaints(); if (ui.mixOpen) runMix();
+});
+renderPaints();
 
 /* ---------- controls ---------- */
 const getK = key => key.split('.').reduce((o, k) => o[k], state);
@@ -1185,7 +1518,8 @@ const FMT = {
   'colors.k': v => v, 'simplify.amount': v => v === 0 ? 'Off · original photo' : (v / 10).toFixed(1), 'simplify.colors': v => v >= ALL_COLORS ? 'No limit' : v,
   'blur.amount': v => v === 0 ? 'Off' : (v / 10).toFixed(1),
   'values.steps': v => v === 2 ? '2 · notan' : v, 'values.shift': v => (v > 0 ? '+' : '') + v,
-  'values.smooth': v => v === 0 ? 'Off' : v, 'temp.sens': v => v, 'trace.opacity': v => v + '%'
+  'values.smooth': v => v === 0 ? 'Off' : v, 'temp.sens': v => v, 'trace.opacity': v => v + '%',
+  'pick.tol': v => v <= 5 ? 'Tight' : v <= 14 ? 'Medium' : 'Loose'
 };
 function syncControls() {
   document.querySelectorAll('input[type=range][data-key]').forEach(el => {
@@ -1209,9 +1543,12 @@ function syncControls() {
 function changed(key) {
   if (key === 'colors.k') ui.isolateColors = -1;
   if (key === 'simplify.colors' || key === 'simplify.amount') ui.isolateSimplify = -1;
+  if (key && key.startsWith('values.')) ui.isolateValue = -1;
   if (key && key.startsWith('trace.')) { applyTraceSettings(key); }
   syncControls(); saveSettings();
-  if (key && key.startsWith('pick.')) { renderReadout(); updateNear(); return; }
+  if (key && key.startsWith('view.')) { drawGrid(); if (ui.pick) drawLoupe(); return; }
+  if ((key === 'pick.size' || key === 'pick.from') && ui.pick) { drawLoupe(); if (ui.mixOpen) runMix(); }
+  if (key && key.startsWith('pick.') && key !== 'pick.match' && !state.pick.match) { renderReadout(); updateNear(); return; }
   schedule();
 }
 document.addEventListener('input', e => {
@@ -1225,15 +1562,17 @@ document.addEventListener('click', e => {
   if (tab) { state.mode = tab.dataset.mode; changed(); return; }
   const sw = e.target.closest('button.sw');
   if (sw) {
-    const idx = +sw.dataset.idx, k = sw.dataset.which === 'colors' ? 'isolateColors' : 'isolateSimplify';
+    const idx = +sw.dataset.idx, k = sw.dataset.which === 'colors' ? 'isolateColors' : sw.dataset.which === 'values' ? 'isolateValue' : 'isolateSimplify';
     ui[k] = ui[k] === idx ? -1 : idx; schedule(); return;
   }
   const mc = e.target.closest('[data-mine]');
   if (mc) {
     const h = mc.dataset.mine;
-    if (ui.fixed && hex(...ui.fixed) === h) { ui.fixed = null; $('#marker').hidden = !ui.pick; }
-    else { ui.fixed = unhex(h); $('#marker').hidden = true; }
-    renderReadout(); updateNear();
+    const cur = samplePick();
+    if (ui.fixed && hex(...ui.fixed) === h) { ui.fixed = null; marker.hidden = !ui.pick; }
+    else { if (cur) ui.prev = cur; ui.fixed = unhex(h); marker.hidden = true; }
+    if (ui.mixOpen) runMix();
+    if (state.pick.match) schedule(); else { renderReadout(); updateNear(); }
   }
 });
 $('#valThr').addEventListener('input', e => { state.values.thr = +e.target.value; saveSettings(); schedule(); });
@@ -1252,7 +1591,16 @@ cmp.addEventListener('keyup', holdOff);
 /* save */
 let sheetURL = null;
 $('#saveBtn').addEventListener('click', () => {
-  view.toBlob(b => {
+  if (!img) return;
+  const c = document.createElement('canvas'); c.width = img.w; c.height = img.h;
+  const g = c.getContext('2d'); g.drawImage(view, 0, 0);
+  if (+state.view.grid) {
+    const { lines, diag } = gridPaths(), lw = Math.max(1, img.w / 500);
+    g.lineWidth = lw * 3; g.strokeStyle = 'rgba(0,0,0,.5)'; g.stroke(new Path2D(lines + diag));
+    g.lineWidth = lw * 1.2; g.strokeStyle = 'rgba(255,255,255,.92)'; g.stroke(new Path2D(lines));
+    if (diag) { g.setLineDash([lw * 5, lw * 4]); g.stroke(new Path2D(diag)); }
+  }
+  c.toBlob(b => {
     if (!b) { toast('Could not prepare the image.'); return; }
     if (sheetURL) URL.revokeObjectURL(sheetURL);
     sheetURL = URL.createObjectURL(b); $('#sheetImg').src = sheetURL; $('#sheet').hidden = false;
@@ -1269,29 +1617,37 @@ function setBadge(text) {
   const b = $('#badge'); const t = text || (working ? 'Working…' : img && img.sample ? 'Sample photo' : '');
   b.hidden = !t; b.textContent = t;
 }
-function setImage(data, sample) {
-  const c = document.createElement('canvas'); c.width = data.width; c.height = data.height; c.getContext('2d').putImageData(data, 0, 0);
-  img = { w: data.width, h: data.height, n: data.width * data.height, data, rgba: data.data, canvas: c, sample, scale: Math.max(data.width, data.height) / MAX_EDGE };
+// The study runs on an 800 px copy; the picker and magnifier read a sharper copy of up to 2000 px.
+function setImage({ data, hi }, sample) {
+  if (!hi) { const c = document.createElement('canvas'); c.width = data.width; c.height = data.height; c.getContext('2d').putImageData(data, 0, 0); hi = { w: data.width, h: data.height, rgba: data.data, canvas: c }; }
+  img = { w: data.width, h: data.height, n: data.width * data.height, data, rgba: data.data, hi, sample, scale: Math.max(data.width, data.height) / MAX_EDGE };
   view.width = img.w; view.height = img.h; outData = vctx.createImageData(img.w, img.h);
   cache.blur.clear(); cache.cbase = cache.tree = cache.level = cache.simp = cache.colView = cache.soft = cache.lin = cache.val = cache.temp = null;
-  ui.pick = null; ui.fixed = null; ui.isolateColors = ui.isolateSimplify = -1; $('#marker').hidden = true;
+  ui.pick = ui.fixed = ui.prev = null; ui.isolateColors = ui.isolateSimplify = ui.isolateValue = -1; marker.hidden = true;
+  ui.mixOpen = false; mixToken++; $('#mixOut').hidden = true;
   $('#colSw').dataset.k = $('#simSw').dataset.k = '';
-  setBadge(); sizeFrame(); render(); warmUp();
+  setBadge(); sizeFrame(); zv.z = 1; applyZoom(); drawGrid(); render(); warmUp();
 }
+const HI_EDGE = 2000;
 function imageToData(im) {
-  const s = Math.min(1, MAX_EDGE / Math.max(im.naturalWidth, im.naturalHeight));
-  const w = Math.max(1, Math.round(im.naturalWidth * s)), h = Math.max(1, Math.round(im.naturalHeight * s));
+  const iw = im.naturalWidth, ih = im.naturalHeight, hs = Math.min(1, HI_EDGE / Math.max(iw, ih));
+  const hw = Math.max(1, Math.round(iw * hs)), hh = Math.max(1, Math.round(ih * hs));
+  const hc = document.createElement('canvas'); hc.width = hw; hc.height = hh;
+  const hg = hc.getContext('2d', { willReadFrequently: true }); hg.imageSmoothingQuality = 'high'; hg.drawImage(im, 0, 0, hw, hh);
+  const s = Math.min(1, MAX_EDGE / Math.max(iw, ih)), w = Math.max(1, Math.round(iw * s)), h = Math.max(1, Math.round(ih * s));
   const c = document.createElement('canvas'); c.width = w; c.height = h;
-  const g = c.getContext('2d', { willReadFrequently: true }); g.imageSmoothingQuality = 'high'; g.drawImage(im, 0, 0, w, h);
-  return { data: g.getImageData(0, 0, w, h), canvas: c };
+  const g = c.getContext('2d', { willReadFrequently: true }); g.imageSmoothingQuality = 'high'; g.drawImage(hc, 0, 0, w, h);
+  return { data: g.getImageData(0, 0, w, h), hi: { w: hw, h: hh, rgba: hg.getImageData(0, 0, hw, hh).data, canvas: hc } };
 }
 $('#file').addEventListener('change', e => {
   const f = e.target.files && e.target.files[0]; if (!f) return;
   const url = URL.createObjectURL(f), im = new Image();
   im.onload = () => {
-    const { data, canvas } = imageToData(im); URL.revokeObjectURL(url);
-    setImage(data, false);
-    try { localStorage.setItem(PHOTO_KEY, canvas.toDataURL('image/jpeg', 0.9)); } catch (err) {}
+    const d = imageToData(im); URL.revokeObjectURL(url);
+    setImage(d, false);
+    // keep the sharp copy for next time; fall back to a smaller one if storage is tight
+    try { localStorage.setItem(PHOTO_KEY, d.hi.canvas.toDataURL('image/jpeg', 0.88)); }
+    catch (err) { try { const c = document.createElement('canvas'); c.width = d.data.width; c.height = d.data.height; c.getContext('2d').putImageData(d.data, 0, 0); localStorage.setItem(PHOTO_KEY, c.toDataURL('image/jpeg', 0.9)); } catch (err2) {} }
   };
   im.onerror = () => { URL.revokeObjectURL(url); toast("That file didn't open. Try a JPEG or PNG photo."); };
   im.src = url; e.target.value = '';
@@ -1345,7 +1701,7 @@ function paintSample(w, h) {
 }
 
 /* ---------- layout ---------- */
-const stage = $('#stage'), frame = $('#frame');
+const stage = $('#stage');
 function sizeFrame() {
   if (!img) return;
   const cs = getComputedStyle(stage), availW = stage.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
@@ -1353,7 +1709,7 @@ function sizeFrame() {
   const maxH = wide ? Math.max(320, innerHeight - 170) : Math.max(240, innerHeight * 0.52);
   frame.style.width = Math.floor(Math.min(availW, maxH * img.w / img.h)) + 'px';
 }
-addEventListener('resize', () => { sizeFrame(); if (!$('#trace').hidden) fitTrace(false); });
+addEventListener('resize', () => { sizeFrame(); applyZoom(); if (!$('#trace').hidden) fitTrace(false); });
 
 /* ---------- trace on paper ---------- */
 const trace = $('#trace'), tcan = $('#traceCanvas'), tctx = tcan.getContext('2d'), cam = $('#cam');
@@ -1486,10 +1842,10 @@ syncControls();
 let stored = null; try { stored = localStorage.getItem(PHOTO_KEY); } catch (e) {}
 if (stored) {
   const im = new Image();
-  im.onload = () => setImage(imageToData(im).data, false);
-  im.onerror = () => setImage(paintSample(800, 600), true);
+  im.onload = () => setImage(imageToData(im), false);
+  im.onerror = () => setImage({ data: paintSample(800, 600) }, true);
   im.src = stored;
-} else setImage(paintSample(800, 600), true);
+} else setImage({ data: paintSample(800, 600) }, true);
 })();
 </script>
 <script>
