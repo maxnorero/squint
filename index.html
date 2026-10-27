@@ -21,7 +21,7 @@ img{max-width:100%}
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap">
 <style>
-/* Layout: photo on a middle-gray surround, mode tabs, then controls and a color readout; two columns on wide screens.
+/* Layout: photo on a middle-gray surround, mode tabs, then controls and a color picker; two columns on wide screens.
    The UI stays colorless (ink on gray) so it never tints how the photo's colors read. */
 :root{
   --bg:#dddddb; --surface:#ececea; --raise:#f8f8f6; --line:#c6c6c3;
@@ -46,9 +46,10 @@ img{max-width:100%}
 }
 [hidden]{display:none!important}
 *{box-sizing:border-box}
-body{background:var(--bg);color:var(--fg);font:400 15px/1.45 var(--f-ui);margin:0;touch-action:manipulation;-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--fg);font:400 15px/1.45 var(--f-ui);margin:0;touch-action:manipulation;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
 button,input,label{font:inherit;color:inherit}
 button{cursor:pointer}
+button:disabled{opacity:.45;cursor:default}
 :focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .sr{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
 
@@ -71,16 +72,21 @@ h1{font:800 26px/1 var(--f-display);letter-spacing:-.02em;margin:0}
 .stage-col{display:grid;gap:10px;min-width:0}
 .stage{background:var(--stage);border-radius:16px;padding:12px;display:grid;place-items:center;min-height:220px}
 .frame{position:relative;line-height:0;max-width:100%}
-#view{display:block;width:100%;height:auto;box-shadow:0 2px 10px rgba(0,0,0,.25);cursor:crosshair;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+#view{display:block;width:100%;height:auto;box-shadow:0 2px 10px rgba(0,0,0,.25);cursor:crosshair;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .badge{position:absolute;top:8px;left:8px;font:500 11px/1 var(--f-data);letter-spacing:.06em;text-transform:uppercase;background:rgba(0,0,0,.6);color:#fff;padding:6px 8px;border-radius:6px;pointer-events:none}
 .marker{position:absolute;width:28px;height:28px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.75),inset 0 0 0 1.5px rgba(0,0,0,.75);transform:translate(-50%,-50%);pointer-events:none}
+/* the loupe floats above the finger so the finger never hides what is being sampled */
+.loupe{position:absolute;z-index:5;width:116px;height:116px;border-radius:50%;border:5px solid #fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.6),0 8px 22px rgba(0,0,0,.35);pointer-events:none;transform:translate(-50%,calc(-100% - 30px));will-change:left,top}
+.loupe.right{transform:translate(34px,-50%)}
+.loupe.left{transform:translate(calc(-100% - 34px),-50%)}
 .stage-actions{display:flex;gap:8px;flex-wrap:wrap}
 .stage-actions .btn{flex:1 1 auto}
 
 .panel{display:grid;gap:12px;min-width:0}
-.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:4px;background:var(--surface);border:1px solid var(--line);border-radius:13px}
-.tabs button{min-height:42px;border:0;border-radius:9px;background:transparent;color:var(--muted);font-weight:600;font-size:14px}
+.tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;padding:4px;background:var(--surface);border:1px solid var(--line);border-radius:13px}
+.tabs button{min-height:42px;border:0;border-radius:9px;background:transparent;color:var(--muted);font-weight:600;font-size:14px;padding:0 2px}
 .tabs button[aria-selected="true"]{background:var(--ink);color:var(--on-ink)}
+@media (max-width:400px){.tabs button{font-size:13px}}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;display:grid;gap:14px;min-width:0}
 .mode-head h2{font:700 21px/1.15 var(--f-display);letter-spacing:-.01em;margin:0 0 4px;text-wrap:balance}
 .mode-head p{margin:0;color:var(--muted);font-size:14px;max-width:62ch}
@@ -101,7 +107,7 @@ input.track-value::-moz-range-track{background:linear-gradient(90deg,#111,#f2f2f
 
 .row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .row > span{font-weight:600;font-size:14px}
-.seg{display:flex;gap:3px;padding:3px;border-radius:10px;background:var(--bg);flex:1 1 200px;max-width:260px}
+.seg{display:flex;gap:3px;padding:3px;border-radius:10px;background:var(--bg);flex:1 1 200px;max-width:280px}
 .seg button{flex:1;min-height:36px;border:0;border-radius:8px;background:transparent;color:var(--muted);font-weight:600;font-size:13px;padding:0 8px}
 .seg button[aria-pressed="true"]{background:var(--raise);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.14)}
 .switch{display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:600;font-size:14px;min-height:36px;cursor:pointer}
@@ -113,13 +119,15 @@ input.track-value::-moz-range-track{background:linear-gradient(90deg,#111,#f2f2f
 
 .propbar{display:flex;height:16px;border-radius:8px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(0,0,0,.1)}
 .propbar span{display:block;min-width:2px}
-.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(68px,1fr));gap:12px 10px}
-.sw{display:grid;gap:5px;align-content:start;text-align:left;border:0;background:none;padding:0;min-width:0}
-.chip{aspect-ratio:1;max-width:100%;border-radius:10px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}
+.swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(94px,1fr));gap:14px 10px}
+.sw{display:grid;gap:6px;align-content:start;text-align:left;border:0;background:none;padding:0;min-width:0}
+.chip{position:relative;display:block;aspect-ratio:1;max-width:100%;border-radius:10px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}
+/* the gray square inside a swatch is that color's value, so the palette can be read as a value study too */
+.vdot{position:absolute;right:6px;bottom:6px;width:32%;aspect-ratio:1;border-radius:6px;box-shadow:0 0 0 2px rgba(255,255,255,.75),0 0 0 3px rgba(0,0,0,.22)}
 .sw[aria-pressed="true"] .chip{outline:3px solid var(--ink);outline-offset:2px}
 .sw.near .chip{outline:2px dashed var(--ink);outline-offset:2px}
-.sw .meta{font:400 11px/1.35 var(--f-data);color:var(--muted);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
-.sw .meta b{font-weight:500;color:var(--fg)}
+.sw .meta{display:block;font:400 11px/1.4 var(--f-data);color:var(--muted);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.sw .meta b{display:block;font:600 12px/1.25 var(--f-ui);color:var(--fg);margin-bottom:1px}
 .hint{margin:0;color:var(--muted);font-size:13px}
 .tempbar span:nth-child(1){background:var(--warm)}
 .tempbar span:nth-child(2){background:var(--line)}
@@ -127,13 +135,24 @@ input.track-value::-moz-range-track{background:linear-gradient(90deg,#111,#f2f2f
 .templegend{display:flex;justify-content:space-between;gap:8px;font:400 12px var(--f-data);color:var(--muted)}
 .templegend b{font-weight:500;color:var(--fg)}
 
-.readout{display:grid;grid-template-columns:64px minmax(0,1fr);gap:14px;align-items:start}
-.readout .big{width:64px;height:64px;border-radius:12px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}
+.eyebrow{font:500 11px var(--f-data);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0}
+.readout{display:grid;grid-template-columns:92px minmax(0,1fr);gap:14px;align-items:start}
+.pk-chip{display:grid;grid-template-rows:2fr 1fr;width:92px;height:118px;border-radius:12px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}
+.pk-chip span{display:flex;align-items:end;padding:5px 7px;font:500 10px/1 var(--f-data);letter-spacing:.04em;text-transform:uppercase}
+.pname{font:700 17px/1.2 var(--f-display);margin:0 0 8px;text-wrap:balance}
+.vscale{position:relative;display:grid;grid-template-columns:repeat(11,1fr);height:14px;border-radius:4px;margin:0 0 3px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}
+.vscale i:first-child{border-radius:4px 0 0 4px}.vscale i:last-child{border-radius:0 4px 4px 0}
+.vtick{position:absolute;top:-5px;bottom:-5px;width:4px;margin-left:-2px;border-radius:2px;background:var(--fg);box-shadow:0 0 0 2px var(--surface)}
+.vlabels{display:flex;justify-content:space-between;font:400 10px var(--f-data);color:var(--muted);margin-bottom:10px}
 .readout dl{margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 12px;font-size:13px}
 .readout dt{color:var(--muted)}
 .readout dd{margin:0;font-family:var(--f-data);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
-.readout .copy{border:0;background:none;padding:0 0 0 8px;font:600 12px var(--f-ui);text-decoration:underline;text-underline-offset:3px}
-.eyebrow{font:500 11px var(--f-data);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0}
+.copy{border:0;background:none;padding:0 0 0 8px;font:600 12px var(--f-ui);text-decoration:underline;text-underline-offset:3px}
+.pick-ctl{display:grid;gap:10px}
+.pick-ctl .row > span{min-width:64px}
+.mine{display:flex;flex-wrap:wrap;gap:8px}
+.mine button{width:42px;height:42px;border-radius:10px;border:0;padding:0;box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}
+.mine button[aria-pressed="true"]{outline:3px solid var(--ink);outline-offset:2px}
 
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--on-ink);padding:10px 16px;border-radius:12px;font-size:14px;z-index:90;max-width:calc(100% - 32px);box-shadow:0 4px 16px rgba(0,0,0,.25)}
 
@@ -177,9 +196,10 @@ input.track-value::-moz-range-track{background:linear-gradient(90deg,#111,#f2f2f
     <section class="stage-col" aria-label="Photo">
       <div class="stage" id="stage">
         <div class="frame" id="frame">
-          <canvas id="view" aria-label="Photo preview. Tap to sample a color."></canvas>
+          <canvas id="view" aria-label="Photo preview. Touch and drag to pick a color."></canvas>
           <span class="badge" id="badge" hidden></span>
           <span class="marker" id="marker" hidden></span>
+          <canvas class="loupe" id="loupe" width="150" height="150" hidden></canvas>
         </div>
       </div>
       <div class="stage-actions">
@@ -193,6 +213,7 @@ input.track-value::-moz-range-track{background:linear-gradient(90deg,#111,#f2f2f
       <nav class="tabs" role="tablist" aria-label="Study mode">
         <button role="tab" data-mode="colors" id="tab-colors">Colors</button>
         <button role="tab" data-mode="simplify" id="tab-simplify">Simplify</button>
+        <button role="tab" data-mode="blur" id="tab-blur">Blur</button>
         <button role="tab" data-mode="values" id="tab-values">Values</button>
         <button role="tab" data-mode="temp" id="tab-temp">Temp</button>
       </nav>
@@ -200,16 +221,16 @@ input.track-value::-moz-range-track{background:linear-gradient(90deg,#111,#f2f2f
       <div class="card" id="mode-colors" role="tabpanel" aria-labelledby="tab-colors">
         <div class="mode-head">
           <h2>Main colors</h2>
-          <p>The dominant colors in the photo and how much of the picture each one covers. Tap a swatch to see where it sits.</p>
+          <p>The colors you'd mix for this photo and how much of the picture each one covers. The gray square in each swatch is its value. Tap a swatch to see where it sits.</p>
         </div>
         <div class="field">
           <div class="field-top"><label for="colK">Colors</label><output id="colKOut"></output></div>
-          <input type="range" id="colK" data-key="colors.k" min="3" max="12" step="1">
+          <input type="range" id="colK" data-key="colors.k" min="2" max="16" step="1">
         </div>
         <div class="row"><span>Sort by</span>
-          <div class="seg" data-key="colors.sort"><button type="button" data-val="amount">Amount</button><button type="button" data-val="value">Dark → light</button></div>
+          <div class="seg" data-key="colors.sort"><button type="button" data-val="amount">Amount</button><button type="button" data-val="value">Value</button><button type="button" data-val="hue">Hue</button></div>
         </div>
-        <label class="switch" for="colFlat"><span>Flatten photo to these colors</span><input type="checkbox" id="colFlat" data-key="colors.flat"></label>
+        <label class="switch" for="colFlat"><span>Paint the photo in these colors</span><input type="checkbox" id="colFlat" data-key="colors.flat"></label>
         <div class="propbar" id="colBar" aria-hidden="true"></div>
         <div class="swatches" id="colSw"></div>
       </div>
@@ -217,12 +238,12 @@ input.track-value::-moz-range-track{background:linear-gradient(90deg,#111,#f2f2f
       <div class="card" id="mode-simplify" role="tabpanel" aria-labelledby="tab-simplify" hidden>
         <div class="mode-head">
           <h2>Simplify</h2>
-          <p>Merges detail into flat shapes you can block in. Slide right to squint harder.</p>
+          <p>Merges detail into flat shapes you can block in. Sliding right only ever joins shapes together, so the big masses stay where they are and each step is a little harder squint.</p>
         </div>
         <div class="field">
           <div class="field-top"><label for="simA">Simplify</label><output id="simAOut"></output></div>
-          <input type="range" id="simA" data-key="simplify.amount" min="0" max="10" step="1">
-          <div class="scale" aria-hidden="true"><span>Detailed</span><span>Big shapes</span></div>
+          <input type="range" id="simA" data-key="simplify.amount" min="0" max="100" step="1">
+          <div class="scale" aria-hidden="true"><span>Photo</span><span>Big shapes</span></div>
         </div>
         <div class="field">
           <div class="field-top"><label for="simK">Limit colors</label><output id="simKOut"></output></div>
@@ -232,6 +253,19 @@ input.track-value::-moz-range-track{background:linear-gradient(90deg,#111,#f2f2f
         <label class="switch" for="simEdges"><span>Outline the shapes</span><input type="checkbox" id="simEdges" data-key="simplify.edges"></label>
         <div class="propbar" id="simBar" aria-hidden="true"></div>
         <div class="swatches" id="simSw"></div>
+      </div>
+
+      <div class="card" id="mode-blur" role="tabpanel" aria-labelledby="tab-blur" hidden>
+        <div class="mode-head">
+          <h2>Blur</h2>
+          <p>Softens the photo the way squinting does, so detail drops away and the big masses and their values show. The blur mixes light like a real lens, so bright spots glow instead of going muddy.</p>
+        </div>
+        <div class="field">
+          <div class="field-top"><label for="blurA">Blur</label><output id="blurAOut"></output></div>
+          <input type="range" id="blurA" data-key="blur.amount" min="0" max="100" step="1">
+          <div class="scale" aria-hidden="true"><span>Sharp</span><span>Very soft</span></div>
+        </div>
+        <label class="switch" for="blurBw"><span>Black and white</span><input type="checkbox" id="blurBw" data-key="blur.bw"></label>
       </div>
 
       <div class="card" id="mode-values" role="tabpanel" aria-labelledby="tab-values" hidden>
@@ -280,7 +314,39 @@ input.track-value::-moz-range-track{background:linear-gradient(90deg,#111,#f2f2f
         <div class="templegend" id="tempLegend"></div>
       </div>
 
-      <div class="card" id="readout" aria-live="polite"></div>
+      <div class="card" id="pickCard">
+        <p class="eyebrow">Color picker</p>
+        <p class="hint" id="pickHint"></p>
+        <div class="readout" id="pickOut" aria-live="polite" hidden>
+          <div class="pk-chip"><span id="pkChip"></span><span id="pkGray">Value</span></div>
+          <div>
+            <p class="pname" id="pkName"></p>
+            <div class="vscale" id="vscale" aria-hidden="true"><b class="vtick" id="pkTick"></b></div>
+            <div class="vlabels" aria-hidden="true"><span>0 black</span><span>5</span><span>10 white</span></div>
+            <dl>
+              <dt>Hex</dt><dd><span id="pkHex"></span><button type="button" class="copy" id="pkCopy">Copy</button></dd>
+              <dt>RGB</dt><dd id="pkRgb"></dd>
+              <dt>HSB</dt><dd id="pkHsb"></dd>
+              <dt>Value</dt><dd id="pkVal"></dd>
+              <dt>Chroma</dt><dd id="pkChroma"></dd>
+              <dt>Temp</dt><dd id="pkTemp"></dd>
+            </dl>
+          </div>
+        </div>
+        <div class="pick-ctl">
+          <div class="row"><span>Sample</span>
+            <div class="seg" data-key="pick.size"><button type="button" data-val="1">1 pixel</button><button type="button" data-val="5">Small</button><button type="button" data-val="11">Large</button></div>
+          </div>
+          <div class="row"><span>Pick from</span>
+            <div class="seg" data-key="pick.from"><button type="button" data-val="photo">Photo</button><button type="button" data-val="view">What you see</button></div>
+          </div>
+          <button class="btn small" id="pkSave" type="button" disabled>Save to my colors</button>
+        </div>
+        <div id="mineWrap" hidden>
+          <div class="row"><span>My colors</span><button type="button" class="aux-btn" id="mineClear">Clear all</button></div>
+          <div class="mine" id="mine"></div>
+        </div>
+      </div>
     </section>
   </main>
 </div>
@@ -318,32 +384,42 @@ input.track-value::-moz-range-track{background:linear-gradient(90deg,#111,#f2f2f
 (() => {
 'use strict';
 const MAX_EDGE = 800;
-const STORE_KEY = 'squint.settings.v1', PHOTO_KEY = 'squint.photo.v1';
+const STORE_KEY = 'squint.settings.v2', OLD_STORE_KEY = 'squint.settings.v1', PHOTO_KEY = 'squint.photo.v1', MINE_KEY = 'squint.mycolors.v1';
 const $ = s => document.querySelector(s);
 
 /* ---------- state ---------- */
 const DEFAULTS = {
   mode: 'colors',
   colors: { k: 6, sort: 'amount', flat: false },
-  simplify: { amount: 5, colors: 17, edges: false },
+  simplify: { amount: 45, colors: 17, edges: false },
+  blur: { amount: 35, bw: false },
   values: { gray: false, steps: 3, thr: null, shift: 0, smooth: 2 },
   temp: { ref: 'neutral', show: 'both', sens: 5 },
+  pick: { size: '5', from: 'photo' },
   trace: { bg: 'camera', src: 'view', opacity: 55, grid: false, flip: false }
 };
 const state = JSON.parse(JSON.stringify(DEFAULTS));
 try {
-  const saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+  let saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+  if (!saved) {
+    saved = JSON.parse(localStorage.getItem(OLD_STORE_KEY) || 'null');
+    if (saved && saved.simplify) saved.simplify.amount = (saved.simplify.amount || 0) * 10; // v1 slider was 0–10
+  }
   if (saved) for (const k of Object.keys(DEFAULTS)) {
     if (typeof DEFAULTS[k] === 'object') Object.assign(state[k], saved[k] || {});
     else if (saved[k] != null) state[k] = saved[k];
   }
+  if (!['amount', 'value', 'hue'].includes(state.colors.sort)) state.colors.sort = 'amount';
 } catch (e) {}
-const ui = { isolateColors: -1, isolateSimplify: -1, pick: null, original: false };
+const ui = { isolateColors: -1, isolateSimplify: -1, pick: null, fixed: null, original: false };
 let saveTimer = 0;
 function saveSettings() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => { try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {} }, 300);
 }
+let mine = [];
+try { mine = (JSON.parse(localStorage.getItem(MINE_KEY) || '[]') || []).filter(h => /^#[0-9A-F]{6}$/i.test(h)).slice(0, 40); } catch (e) {}
+const saveMine = () => { try { localStorage.setItem(MINE_KEY, JSON.stringify(mine)); } catch (e) {} };
 
 /* ---------- color math ---------- */
 const LIN = new Float32Array(256);
@@ -352,6 +428,8 @@ const fLab = t => t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116;
 const fInv = t => { const t3 = t * t * t; return t3 > 0.008856 ? t3 : (t - 16 / 116) / 7.787; };
 const gam = c => c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
 const c255 = v => v < 0 ? 0 : v > 255 ? 255 : Math.round(v);
+const G12 = new Uint8Array(4097); // linear light (12-bit) -> sRGB byte
+for (let i = 0; i <= 4096; i++) G12[i] = c255(gam(Math.min(1, i / 4095)) * 255);
 function rgbToLab(r, g, b) {
   const R = LIN[r], G = LIN[g], B = LIN[b];
   const x = fLab((0.4124 * R + 0.3576 * G + 0.1805 * B) / 0.95047);
@@ -383,19 +461,46 @@ const GRAY = new Uint8Array(101);
 for (let L = 0; L <= 100; L++) GRAY[L] = labToRgb(L, 0, 0)[0];
 const grayOf = L => GRAY[L < 0 ? 0 : L > 100 ? 100 : Math.round(L)];
 const hex = (r, g, b) => '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('').toUpperCase();
-function rgbToHsl(r, g, b) {
+const unhex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+function rgbToHsb(r, g, b) {
   r /= 255; g /= 255; b /= 255;
-  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2;
-  let h = 0, s = 0;
-  if (mx !== mn) {
-    const d = mx - mn; s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
-    h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60;
-  }
-  return [Math.round(h), Math.round(s * 100), Math.round(l * 100)];
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  let h = 0;
+  if (d) { h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60; }
+  return [Math.round(h) % 360, Math.round(mx ? d / mx * 100 : 0), Math.round(mx * 100)];
 }
 // Warm/cool axis in Lab: a hue near orange (50°) is the warm pole, its opposite (blue-cyan) the cool pole.
 const POLE = 50 * Math.PI / 180, PC = Math.cos(POLE), PS = Math.sin(POLE);
 const warmth = (a, b) => a * PC + b * PS;
+// A plain-words name a painter can use: value, then how intense, then hue ("Dark muted blue").
+function colorName(L, a, b) {
+  const C = Math.hypot(a, b), h = (Math.atan2(b, a) * 180 / Math.PI + 360) % 360;
+  const val = L < 18 ? 'very dark' : L < 36 ? 'dark' : L < 64 ? '' : L < 82 ? 'light' : 'very light';
+  let hue;
+  if (C < 6) {
+    if (L < 10) return 'Black'; if (L > 95) return 'White';
+    const t = warmth(a, b);
+    return cap([val, C > 2.5 ? (t > 0 ? 'warm' : 'cool') : '', 'gray'].filter(Boolean).join(' '));
+  }
+  if (h < 20 || h >= 338) hue = 'rose';
+  else if (h < 48) hue = 'red';
+  else if (h < 75) hue = 'orange';
+  else if (h < 95) hue = 'yellow-orange';
+  else if (h < 112) hue = 'yellow';
+  else if (h < 132) hue = 'yellow-green';
+  else if (h < 168) hue = 'green';
+  else if (h < 218) hue = 'blue-green';
+  else if (h < 312) hue = 'blue';
+  else hue = 'violet';
+  // dark, not too intense warm hues read as browns and olives
+  if (L < 48 && C < 48 && h >= 20 && h < 132) {
+    hue = h < 48 ? 'reddish brown' : h < 95 ? 'brown' : 'olive';
+    return cap([L < 22 ? 'dark' : '', C < 14 ? 'grayish' : '', hue].filter(Boolean).join(' '));
+  }
+  const chroma = C < 15 ? 'grayish' : C < 30 ? 'muted' : C < 52 ? '' : C < 72 ? 'strong' : 'vivid';
+  return cap([val, chroma, hue].filter(Boolean).join(' '));
+}
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 
 /* ---------- image processing ---------- */
 function rng(seed) { let s = seed >>> 0 || 1; return () => { s ^= s << 13; s ^= s >>> 17; s ^= s << 5; return (s >>> 0) / 4294967296; }; }
@@ -423,64 +528,239 @@ function blurRGBA(src, w, h, r) {
   for (let pass = 0; pass < 2; pass++) { blurPass(a, b, w, h, r, true); blurPass(b, a, w, h, r, false); }
   return a;
 }
+// Box blur on 3 interleaved float channels; three passes of it come out as a gaussian.
+function boxF(s, d, w, h, r, horizontal) {
+  const inv = 1 / (r + r + 1), lines = horizontal ? h : w, len = horizontal ? w : h, step = horizontal ? 3 : w * 3;
+  for (let ln = 0; ln < lines; ln++) {
+    const base = horizontal ? ln * w * 3 : ln * 3;
+    for (let c = 0; c < 3; c++) {
+      const o = base + c; let acc = 0;
+      for (let k = -r; k <= r; k++) { const kk = k < 0 ? 0 : k > len - 1 ? len - 1 : k; acc += s[o + kk * step]; }
+      for (let x = 0; x < len; x++) {
+        d[o + x * step] = acc * inv;
+        const xo = x - r < 0 ? 0 : x - r, xi = x + r + 1 > len - 1 ? len - 1 : x + r + 1;
+        acc += s[o + xi * step] - s[o + xo * step];
+      }
+    }
+  }
+}
 
-function kmeans(lab, n, k, seed) {
-  const rand = rng(seed);
-  const S = Math.min(n, 5000), samp = new Float32Array(S * 3);
-  for (let i = 0; i < S; i++) { const p = Math.floor(rand() * n) * 3; samp[i * 3] = lab[p]; samp[i * 3 + 1] = lab[p + 1]; samp[i * 3 + 2] = lab[p + 2]; }
-  const C = new Float32Array(k * 3);
-  const d2 = (i, c) => { const x = samp[i * 3] - C[c * 3], y = samp[i * 3 + 1] - C[c * 3 + 1], z = samp[i * 3 + 2] - C[c * 3 + 2]; return x * x + y * y + z * z; };
-  const first = Math.floor(rand() * S); C[0] = samp[first * 3]; C[1] = samp[first * 3 + 1]; C[2] = samp[first * 3 + 2];
-  const D = new Float32Array(S).fill(Infinity);
+// Weighted k-means with a k-means++ start and a fixed seed, so the same photo always gives the same answer.
+function kmeansW(P, W, m, k, seed, iters) {
+  const rand = rng(seed), C = new Float64Array(k * 3), D = new Float64Array(m).fill(Infinity);
+  let first = 0; for (let i = 1; i < m; i++) if (W[i] > W[first]) first = i;
+  C[0] = P[first * 3]; C[1] = P[first * 3 + 1]; C[2] = P[first * 3 + 2];
   for (let c = 1; c < k; c++) {
-    let sum = 0;
-    for (let i = 0; i < S; i++) { const d = d2(i, c - 1); if (d < D[i]) D[i] = d; sum += D[i]; }
-    let t = rand() * sum, pick = S - 1;
-    for (let i = 0; i < S; i++) { t -= D[i]; if (t <= 0) { pick = i; break; } }
-    C[c * 3] = samp[pick * 3]; C[c * 3 + 1] = samp[pick * 3 + 1]; C[c * 3 + 2] = samp[pick * 3 + 2];
+    let sum = 0; const o = (c - 1) * 3;
+    for (let i = 0; i < m; i++) {
+      const x = P[i * 3] - C[o], y = P[i * 3 + 1] - C[o + 1], z = P[i * 3 + 2] - C[o + 2], d = x * x + y * y + z * z;
+      if (d < D[i]) D[i] = d; sum += D[i] * W[i];
+    }
+    let t = rand() * sum, pick = m - 1;
+    for (let i = 0; i < m; i++) { t -= D[i] * W[i]; if (t <= 0) { pick = i; break; } }
+    C[c * 3] = P[pick * 3]; C[c * 3 + 1] = P[pick * 3 + 1]; C[c * 3 + 2] = P[pick * 3 + 2];
   }
-  const asg = new Int16Array(S).fill(-1), sums = new Float64Array(k * 3), cnt = new Uint32Array(k);
-  for (let it = 0; it < 24; it++) {
-    sums.fill(0); cnt.fill(0); let moved = 0;
-    for (let i = 0; i < S; i++) {
+  const asg = new Int32Array(m).fill(-1), S = new Float64Array(k * 3), N = new Float64Array(k);
+  for (let it = 0; it < iters; it++) {
+    S.fill(0); N.fill(0); let moved = 0;
+    for (let i = 0; i < m; i++) {
+      const L = P[i * 3], A = P[i * 3 + 1], B = P[i * 3 + 2];
       let best = 0, bd = Infinity;
-      for (let c = 0; c < k; c++) { const d = d2(i, c); if (d < bd) { bd = d; best = c; } }
+      for (let c = 0; c < k; c++) { const x = L - C[c * 3], y = A - C[c * 3 + 1], z = B - C[c * 3 + 2], d = x * x + y * y + z * z; if (d < bd) { bd = d; best = c; } }
       if (asg[i] !== best) { asg[i] = best; moved++; }
-      cnt[best]++; sums[best * 3] += samp[i * 3]; sums[best * 3 + 1] += samp[i * 3 + 1]; sums[best * 3 + 2] += samp[i * 3 + 2];
+      const w = W[i]; N[best] += w; S[best * 3] += L * w; S[best * 3 + 1] += A * w; S[best * 3 + 2] += B * w;
     }
+    for (let c = 0; c < k; c++) if (N[c] > 0) { C[c * 3] = S[c * 3] / N[c]; C[c * 3 + 1] = S[c * 3 + 1] / N[c]; C[c * 3 + 2] = S[c * 3 + 2] / N[c]; }
+    if (!moved) break;
+  }
+  return { C, asg };
+}
+// Ward merging of a small set of clusters: always joins the pair that costs the least color accuracy.
+// Cutting this one merge order at k gives every palette size, so 5 colors is always 6 colors with two joined.
+function wardTree(M, Wt, c) {
+  const m = Float64Array.from(M), w = Float64Array.from(Wt), alive = new Uint8Array(c).fill(1), merges = new Int32Array(Math.max(0, c - 1) * 2);
+  for (let t = 0; t < c - 1; t++) {
+    let best = Infinity, ba = -1, bb = -1;
+    for (let a = 0; a < c; a++) if (alive[a]) for (let b = a + 1; b < c; b++) if (alive[b]) {
+      const x = m[a * 3] - m[b * 3], y = m[a * 3 + 1] - m[b * 3 + 1], z = m[a * 3 + 2] - m[b * 3 + 2];
+      const cost = w[a] * w[b] / (w[a] + w[b]) * (x * x + y * y + z * z);
+      if (cost < best) { best = cost; ba = a; bb = b; }
+    }
+    const W = w[ba] + w[bb];
+    for (let j = 0; j < 3; j++) m[ba * 3 + j] = (m[ba * 3 + j] * w[ba] + m[bb * 3 + j] * w[bb]) / W;
+    w[ba] = W; alive[bb] = 0; merges[t * 2] = ba; merges[t * 2 + 1] = bb;
+  }
+  return merges;
+}
+// Drop empty clusters and recompute exact means from the members.
+function compact(P, W, asg, m, k) {
+  const S = new Float64Array(k * 3), N = new Float64Array(k);
+  for (let i = 0; i < m; i++) { const a = asg[i], w = W ? W[i] : 1; N[a] += w; S[a * 3] += P[i * 3] * w; S[a * 3 + 1] += P[i * 3 + 1] * w; S[a * 3 + 2] += P[i * 3 + 2] * w; }
+  const remap = new Int32Array(k).fill(-1); let c = 0;
+  for (let j = 0; j < k; j++) if (N[j] > 0) remap[j] = c++;
+  const M = new Float64Array(c * 3), Wt = new Float64Array(c);
+  for (let j = 0; j < k; j++) { const r = remap[j]; if (r < 0) continue; Wt[r] = N[j]; M[r * 3] = S[j * 3] / N[j]; M[r * 3 + 1] = S[j * 3 + 1] / N[j]; M[r * 3 + 2] = S[j * 3 + 2] / N[j]; }
+  for (let i = 0; i < m; i++) asg[i] = remap[asg[i]];
+  return { asg, c, M, Wt, merges: wardTree(M, Wt, c), cuts: new Map() };
+}
+const PAL_MAX = 32;
+function makePalette(P, W, m, seed) {
+  if (m <= PAL_MAX) return compact(P, W, Int32Array.from({ length: m }, (_, i) => i), m, m);
+  return compact(P, W, kmeansW(P, W, m, PAL_MAX, seed, 16).asg, m, PAL_MAX);
+}
+function cutPalette(pal, k) {
+  k = Math.max(1, Math.min(k, pal.c));
+  if (pal.cuts.has(k)) return pal.cuts.get(k);
+  const c = pal.c, par = new Int32Array(c);
+  for (let i = 0; i < c; i++) par[i] = i;
+  for (let t = 0; t < c - k; t++) par[pal.merges[t * 2 + 1]] = pal.merges[t * 2];
+  const root = i => { while (par[i] !== i) i = par[i]; return i; };
+  const gmap = new Int32Array(c), map = new Int32Array(c).fill(-1); let g = 0;
+  for (let i = 0; i < c; i++) { const r = root(i); if (map[r] < 0) map[r] = g++; gmap[i] = map[r]; }
+  const S = new Float64Array(g * 3), N = new Float64Array(g); let total = 0;
+  for (let i = 0; i < c; i++) { const j = gmap[i], w = pal.Wt[i]; N[j] += w; total += w; S[j * 3] += pal.M[i * 3] * w; S[j * 3 + 1] += pal.M[i * 3 + 1] * w; S[j * 3 + 2] += pal.M[i * 3 + 2] * w; }
+  const rgb = new Uint8Array(g * 3), list = [];
+  for (let j = 0; j < g; j++) {
+    const L = S[j * 3] / N[j], a = S[j * 3 + 1] / N[j], b = S[j * 3 + 2] / N[j], col = labToRgb(L, a, b);
+    rgb.set(col, j * 3);
+    list.push({ idx: j, rgb: col, L, a, b, share: N[j] / total });
+  }
+  const out = { k: g, gmap, rgb, list };
+  pal.cuts.set(k, out);
+  return out;
+}
+
+/* ---------- shapes for Simplify ----------
+   1. SLIC cuts the photo into ~3000 small, compact patches whose borders follow the photo's edges.
+   2. Ward merging joins neighboring patches, cheapest first (small and similar goes first), all the way down
+      to one shape, and records the order once per photo.
+   3. A Simplify level is just "replay the first N merges". Higher levels are always the lower level with more
+      shapes joined, so nothing jumps around between steps, and the slider is instant. */
+const WL = 2; // value differences count 1.4× hue/chroma ones: squinting is mostly about value
+function slic(lab, w, h, K, m) {
+  const n = w * h, nx = Math.max(1, Math.round(w / Math.sqrt(n / K))), ny = Math.max(1, Math.round(h / Math.sqrt(n / K))), k = nx * ny;
+  const sx = w / nx, sy = h / ny, S = (sx + sy) / 2, sp = (m / S) * (m / S);
+  const cL = new Float64Array(k), cA = new Float64Array(k), cB = new Float64Array(k), cX = new Float64Array(k), cY = new Float64Array(k);
+  for (let j = 0, c = 0; j < ny; j++) for (let i = 0; i < nx; i++, c++) {
+    const x = Math.min(w - 1, Math.floor((i + 0.5) * sx)), y = Math.min(h - 1, Math.floor((j + 0.5) * sy)), q = (y * w + x) * 3;
+    cX[c] = x; cY[c] = y; cL[c] = lab[q]; cA[c] = lab[q + 1]; cB[c] = lab[q + 2];
+  }
+  const lbl = new Int32Array(n).fill(-1), dist = new Float32Array(n), sums = new Float64Array(k * 5), cnt = new Uint32Array(k);
+  for (let it = 0; it < 6; it++) {
+    dist.fill(Infinity);
     for (let c = 0; c < k; c++) {
-      if (cnt[c]) { C[c * 3] = sums[c * 3] / cnt[c]; C[c * 3 + 1] = sums[c * 3 + 1] / cnt[c]; C[c * 3 + 2] = sums[c * 3 + 2] / cnt[c]; }
-      else { const p = Math.floor(rand() * S); C[c * 3] = samp[p * 3]; C[c * 3 + 1] = samp[p * 3 + 1]; C[c * 3 + 2] = samp[p * 3 + 2]; }
+      const x0 = Math.max(0, Math.floor(cX[c] - sx)), x1 = Math.min(w - 1, Math.ceil(cX[c] + sx));
+      const y0 = Math.max(0, Math.floor(cY[c] - sy)), y1 = Math.min(h - 1, Math.ceil(cY[c] + sy));
+      const L = cL[c], A = cA[c], B = cB[c], X = cX[c], Y = cY[c];
+      for (let y = y0; y <= y1; y++) {
+        const dy = y - Y, dy2 = dy * dy * sp;
+        for (let x = x0, i = y * w + x0; x <= x1; x++, i++) {
+          const q = i * 3, dl = lab[q] - L, da = lab[q + 1] - A, db = lab[q + 2] - B, dx = x - X;
+          const D = WL * dl * dl + da * da + db * db + dx * dx * sp + dy2;
+          if (D < dist[i]) { dist[i] = D; lbl[i] = c; }
+        }
+      }
     }
-    if (moved === 0) break;
+    sums.fill(0); cnt.fill(0);
+    for (let y = 0, i = 0; y < h; y++) for (let x = 0; x < w; x++, i++) {
+      const c = lbl[i]; if (c < 0) continue;
+      cnt[c]++; const o = c * 5, q = i * 3; sums[o] += lab[q]; sums[o + 1] += lab[q + 1]; sums[o + 2] += lab[q + 2]; sums[o + 3] += x; sums[o + 4] += y;
+    }
+    for (let c = 0; c < k; c++) if (cnt[c]) { const o = c * 5, N = cnt[c]; cL[c] = sums[o] / N; cA[c] = sums[o + 1] / N; cB[c] = sums[o + 2] / N; cX[c] = sums[o + 3] / N; cY[c] = sums[o + 4] / N; }
   }
-  return C;
+  return { lbl, S };
 }
-function assign(lab, n, C, k) {
-  const labels = new Uint8Array(n);
-  for (let i = 0, q = 0; i < n; i++, q += 3) {
-    const L = lab[q], A = lab[q + 1], B = lab[q + 2];
-    let best = 0, bd = Infinity;
-    for (let c = 0; c < k; c++) { const x = L - C[c * 3], y = A - C[c * 3 + 1], z = B - C[c * 3 + 2], d = x * x + y * y + z * z; if (d < bd) { bd = d; best = c; } }
-    labels[i] = best;
+// Relabel into connected patches; specks smaller than minSize join the patch beside them.
+function connect(lbl, w, h, minSize) {
+  const n = w * h, out = new Int32Array(n).fill(-1), q = new Int32Array(n); let count = 0;
+  for (let i = 0; i < n; i++) {
+    if (out[i] >= 0) continue;
+    const old = lbl[i], x = i % w, adj = x > 0 ? out[i - 1] : i >= w ? out[i - w] : -1;
+    out[i] = count; q[0] = i; let len = 1;
+    for (let j = 0; j < len; j++) {
+      const p = q[j], px = p % w;
+      if (px > 0 && out[p - 1] < 0 && lbl[p - 1] === old) { out[p - 1] = count; q[len++] = p - 1; }
+      if (px < w - 1 && out[p + 1] < 0 && lbl[p + 1] === old) { out[p + 1] = count; q[len++] = p + 1; }
+      if (p >= w && out[p - w] < 0 && lbl[p - w] === old) { out[p - w] = count; q[len++] = p - w; }
+      if (p + w < n && out[p + w] < 0 && lbl[p + w] === old) { out[p + w] = count; q[len++] = p + w; }
+    }
+    if (len < minSize && adj >= 0) { for (let j = 0; j < len; j++) out[q[j]] = adj; }
+    else count++;
   }
-  return labels;
+  return { sp: out, count };
 }
-function finishPalette(C, k, labels, n) {
-  const counts = new Uint32Array(k);
-  for (let i = 0; i < n; i++) counts[labels[i]]++;
-  const crgb = new Uint8Array(k * 3), list = [];
-  for (let c = 0; c < k; c++) {
-    const rgb = labToRgb(C[c * 3], C[c * 3 + 1], C[c * 3 + 2]);
-    crgb.set(rgb, c * 3);
-    list.push({ idx: c, rgb, L: C[c * 3], a: C[c * 3 + 1], b: C[c * 3 + 2], share: counts[c] / n });
+// Min-heap of candidate merges; stale entries are skipped when popped.
+function heapPush(H, e) { H.push(e); let i = H.length - 1; while (i) { const p = (i - 1) >> 1; if (H[p].c <= e.c) break; H[i] = H[p]; i = p; } H[i] = e; }
+function heapPop(H) {
+  const top = H[0], last = H.pop(); if (!H.length) return top;
+  let i = 0; const n = H.length;
+  for (;;) { let l = i * 2 + 1, m = i; if (l < n && H[l].c < last.c) m = l; if (l + 1 < n && H[l + 1].c < (m === i ? last.c : H[m].c)) m = l + 1; if (m === i) break; H[i] = H[m]; i = m; }
+  H[i] = last; return top;
+}
+function buildTree(lab, w, h) {
+  const n = w * h, K = Math.max(16, Math.min(3000, Math.round(n / 40)));
+  const { lbl, S } = slic(lab, w, h, K, 10);
+  const { sp, count: n0 } = connect(lbl, w, h, Math.max(3, Math.round(S * S / 5)));
+  const mL = new Float64Array(n0), mA = new Float64Array(n0), mB = new Float64Array(n0), wt = new Float64Array(n0);
+  for (let i = 0; i < n; i++) { const s = sp[i], q = i * 3; wt[s]++; mL[s] += lab[q]; mA[s] += lab[q + 1]; mB[s] += lab[q + 2]; }
+  const sums = new Float64Array(n0 * 3), size = Float64Array.from(wt);
+  for (let s = 0; s < n0; s++) { sums[s * 3] = mL[s]; sums[s * 3 + 1] = mA[s]; sums[s * 3 + 2] = mB[s]; mL[s] /= wt[s]; mA[s] /= wt[s]; mB[s] /= wt[s]; }
+  const adj = Array.from({ length: n0 }, () => new Set());
+  for (let y = 0, i = 0; y < h; y++) for (let x = 0; x < w; x++, i++) {
+    const a = sp[i];
+    if (x < w - 1) { const b = sp[i + 1]; if (a !== b) { adj[a].add(b); adj[b].add(a); } }
+    if (y < h - 1) { const b = sp[i + w]; if (a !== b) { adj[a].add(b); adj[b].add(a); } }
   }
-  return { C, k, labels, crgb, list };
+  // patch centers and the patch-neighbor lists, kept from before merging for the border clean-up in refine()
+  const cx = new Float64Array(n0), cy = new Float64Array(n0);
+  for (let y = 0, i = 0; y < h; y++) for (let x = 0; x < w; x++, i++) { cx[sp[i]] += x; cy[sp[i]] += y; }
+  for (let s = 0; s < n0; s++) { cx[s] /= size[s]; cy[s] /= size[s]; }
+  const adjStart = new Int32Array(n0 + 1); for (let s = 0; s < n0; s++) adjStart[s + 1] = adjStart[s] + adj[s].size;
+  const adjList = new Int32Array(adjStart[n0]); for (let s = 0, j = 0; s < n0; s++) for (const b of adj[s]) adjList[j++] = b;
+  const cost = (a, b) => { const dl = mL[a] - mL[b], da = mA[a] - mA[b], db = mB[a] - mB[b]; return wt[a] * wt[b] / (wt[a] + wt[b]) * (WL * dl * dl + da * da + db * db); };
+  const ver = new Int32Array(n0), dead = new Uint8Array(n0), H = [];
+  for (let a = 0; a < n0; a++) for (const b of adj[a]) if (b > a) heapPush(H, { c: cost(a, b), a, b, va: 0, vb: 0 });
+  const merges = new Int32Array(Math.max(0, n0 - 1) * 2); let t = 0;
+  while (H.length && t < n0 - 1) {
+    const e = heapPop(H);
+    if (dead[e.a] || dead[e.b] || ver[e.a] !== e.va || ver[e.b] !== e.vb) continue;
+    let a = e.a, b = e.b; if (adj[b].size > adj[a].size) { const tmp = a; a = b; b = tmp; }
+    merges[t * 2] = a; merges[t * 2 + 1] = b; t++;
+    const W = wt[a] + wt[b];
+    mL[a] = (mL[a] * wt[a] + mL[b] * wt[b]) / W; mA[a] = (mA[a] * wt[a] + mA[b] * wt[b]) / W; mB[a] = (mB[a] * wt[a] + mB[b] * wt[b]) / W;
+    wt[a] = W; dead[b] = 1; ver[a]++;
+    for (const c of adj[b]) { if (c === a) continue; adj[c].delete(b); adj[c].add(a); adj[a].add(c); }
+    adj[a].delete(b); adj[b] = null;
+    for (const c of adj[a]) heapPush(H, { c: cost(a, c), a, b: c, va: ver[a], vb: ver[c] });
+  }
+  return { sp, n0, sums, size, merges, steps: t, w, h, S, cx, cy, adjStart, adjList };
+}
+
+// In smooth areas the patch borders sit on SLIC's grid, which leaves stair-steps between shapes. One more
+// assignment pass, now against each shape's own color, slides every border to where the colors actually change.
+function refine(tr, spShape, mean, lab) {
+  const { sp, w, h, n0, cx, cy, adjStart, adjList, S } = tr, sw = (10 / S) * (10 / S);
+  const pix = tr.pix || (tr.pix = new Int32Array(w * h)); // one buffer per photo: only one level is ever on screen
+  const edgeP = new Uint8Array(n0);
+  for (let p = 0; p < n0; p++) for (let j = adjStart[p]; j < adjStart[p + 1]; j++) if (spShape[adjList[j]] !== spShape[p]) { edgeP[p] = 1; break; }
+  for (let y = 0, i = 0; y < h; y++) for (let x = 0; x < w; x++, i++) {
+    const p = sp[i]; if (!edgeP[p]) { pix[i] = spShape[p]; continue; }
+    const q = i * 3, L = lab[q], A = lab[q + 1], B = lab[q + 2];
+    let best = spShape[p], bd = Infinity;
+    for (let j = adjStart[p] - 1; j < adjStart[p + 1]; j++) {
+      const k = j < adjStart[p] ? p : adjList[j], s = spShape[k], o = s * 3;
+      const dl = L - mean[o], da = A - mean[o + 1], db = B - mean[o + 2], dx = x - cx[k], dy = y - cy[k];
+      const D = WL * dl * dl + da * da + db * db + (dx * dx + dy * dy) * sw;
+      if (D < bd) { bd = D; best = s; }
+    }
+    pix[i] = best;
+  }
+  return pix;
 }
 
 /* ---------- image + caches ---------- */
 let img = null, outData = null;
-const cache = { blur: new Map(), pal: null, simp: null, reg: null, val: null, temp: null };
+const cache = { blur: new Map(), cbase: null, tree: null, level: null, soft: null, lin: null, val: null, temp: null };
 const view = $('#view'), vctx = view.getContext('2d', { willReadFrequently: true });
 
 function getBlur(r) {
@@ -489,142 +769,124 @@ function getBlur(r) {
   const rgba = r ? blurRGBA(img.rgba, img.w, img.h, r) : img.rgba;
   const entry = { rgba, lab: labArray(rgba, img.n) };
   cache.blur.set(r, entry);
-  if (cache.blur.size > 4) cache.blur.delete(cache.blur.keys().next().value);
+  if (cache.blur.size > 3) cache.blur.delete(cache.blur.keys().next().value);
   return entry;
 }
-function getPalette() {
-  const k = state.colors.k;
-  if (cache.pal && cache.pal.key === k) return cache.pal;
-  const lab = getBlur(img.scale).lab;
-  const C = kmeans(lab, img.n, k, 7);
-  cache.pal = Object.assign(finishPalette(C, k, assign(lab, img.n, C, k), img.n), { key: k });
-  return cache.pal;
+// Colors tab: 32 fine clusters of every pixel, then the merge order that boils them down to any palette size.
+function getColorBase() {
+  if (cache.cbase) return cache.cbase;
+  const lab = getBlur(1).lab, n = img.n, stride = Math.max(1, Math.floor(Math.sqrt(n / 24000)));
+  const pts = [];
+  for (let y = stride >> 1; y < img.h; y += stride) for (let x = stride >> 1; x < img.w; x += stride) { const q = (y * img.w + x) * 3; pts.push(lab[q], lab[q + 1], lab[q + 2]); }
+  const m = pts.length / 3, P = Float32Array.from(pts), k = Math.min(PAL_MAX, m);
+  const { C } = kmeansW(P, new Float32Array(m).fill(1), m, k, 7, 16);
+  const asg = new Int32Array(n);
+  for (let i = 0, q = 0; i < n; i++, q += 3) {
+    const L = lab[q], A = lab[q + 1], B = lab[q + 2]; let best = 0, bd = Infinity;
+    for (let c = 0; c < k; c++) { const x = L - C[c * 3], y = A - C[c * 3 + 1], z = B - C[c * 3 + 2], d = x * x + y * y + z * z; if (d < bd) { bd = d; best = c; } }
+    asg[i] = best;
+  }
+  cache.cbase = compact(lab, null, asg, n, k);
+  return cache.cbase;
 }
-// Kuwahara filter: flattens texture inside shapes but keeps their edges sharp (a blur would melt them).
-// Each pixel takes the mean of whichever of its four corner windows is the most uniform.
-function kuwahara(src, w, h, r) {
-  const W = w + 1, N = W * (h + 1);
-  const SR = new Float64Array(N), SG = new Float64Array(N), SB = new Float64Array(N), SL = new Float64Array(N), SQ = new Float64Array(N);
-  for (let y = 0; y < h; y++) {
-    let rr = 0, rg = 0, rb = 0, rl = 0, rq = 0;
-    for (let x = 0; x < w; x++) {
-      const p = (y * w + x) * 4, R = src[p], G = src[p + 1], B = src[p + 2], L = 0.299 * R + 0.587 * G + 0.114 * B;
-      rr += R; rg += G; rb += B; rl += L; rq += L * L;
-      const o = (y + 1) * W + x + 1, u = o - W;
-      SR[o] = SR[u] + rr; SG[o] = SG[u] + rg; SB[o] = SB[u] + rb; SL[o] = SL[u] + rl; SQ[o] = SQ[u] + rq;
-    }
-  }
-  const out = new Uint8ClampedArray(w * h * 4);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    let best = Infinity, b11 = 0, b01 = 0, b10 = 0, b00 = 0, ba = 1;
-    for (let q = 0; q < 4; q++) {
-      let x0 = q & 1 ? x : x - r, x1 = q & 1 ? x + r : x, y0 = q & 2 ? y : y - r, y1 = q & 2 ? y + r : y;
-      if (x0 < 0) x0 = 0; if (y0 < 0) y0 = 0; if (x1 > w - 1) x1 = w - 1; if (y1 > h - 1) y1 = h - 1;
-      const a = (x1 - x0 + 1) * (y1 - y0 + 1), i11 = (y1 + 1) * W + x1 + 1, i01 = y0 * W + x1 + 1, i10 = (y1 + 1) * W + x0, i00 = y0 * W + x0;
-      const m = (SL[i11] - SL[i01] - SL[i10] + SL[i00]) / a, v = (SQ[i11] - SQ[i01] - SQ[i10] + SQ[i00]) / a - m * m;
-      if (v < best) { best = v; b11 = i11; b01 = i01; b10 = i10; b00 = i00; ba = a; }
-    }
-    const p = (y * w + x) * 4;
-    out[p] = (SR[b11] - SR[b01] - SR[b10] + SR[b00]) / ba;
-    out[p + 1] = (SG[b11] - SG[b01] - SG[b10] + SG[b00]) / ba;
-    out[p + 2] = (SB[b11] - SB[b01] - SB[b10] + SB[b00]) / ba;
-    out[p + 3] = 255;
-  }
-  return out;
-}
-// Graph-based segmentation (Felzenszwalb–Huttenlocher): neighboring pixels join into one shape while
-// their difference stays small next to the variation already inside each shape. Bigger K = bigger shapes.
-function segment(lab, w, h, K, minSize) {
-  const n = w * h, SCALE = 4, MAXB = 1024, OFF = [1, w, w + 1, w - 1];
-  const wq = new Uint16Array(n * 4), counts = new Uint32Array(MAXB + 1);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const p = y * w + x;
-    for (let d = 0; d < 4; d++) {
-      const ok = d === 0 ? x < w - 1 : d === 1 ? y < h - 1 : d === 2 ? x < w - 1 && y < h - 1 : x > 0 && y < h - 1;
-      const e = p * 4 + d;
-      if (!ok) { wq[e] = MAXB; continue; }
-      const q = p + OFF[d], a = lab[p * 3] - lab[q * 3], b = lab[p * 3 + 1] - lab[q * 3 + 1], c = lab[p * 3 + 2] - lab[q * 3 + 2];
-      const bin = Math.min(MAXB - 1, Math.round(Math.sqrt(a * a + b * b + c * c) * SCALE));
-      wq[e] = bin; counts[bin]++;
-    }
-  }
-  // counting sort of edges by weight
-  const startAt = new Uint32Array(MAXB); let total = 0;
-  for (let b = 0; b < MAXB; b++) { startAt[b] = total; total += counts[b]; }
-  const order = new Uint32Array(total);
-  for (let e = 0; e < n * 4; e++) { const b = wq[e]; if (b < MAXB) order[startAt[b]++] = e; }
-  const parent = new Int32Array(n), size = new Uint32Array(n).fill(1), thr = new Float32Array(n).fill(K);
-  for (let i = 0; i < n; i++) parent[i] = i;
-  const find = i => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
-  const join = (a, b) => { if (size[a] < size[b]) { const t = a; a = b; b = t; } parent[b] = a; size[a] += size[b]; return a; };
-  for (let j = 0; j < total; j++) {
-    const e = order[j], p = e >> 2, a = find(p), b = find(p + OFF[e & 3]);
-    if (a === b) continue;
-    const wv = wq[e] / SCALE;
-    if (wv <= thr[a] && wv <= thr[b]) { const r = join(a, b); thr[r] = wv + K / size[r]; }
-  }
-  // fold shapes that are still too small into their most similar neighbor
-  for (let j = 0; j < total; j++) {
-    const e = order[j], p = e >> 2, a = find(p), b = find(p + OFF[e & 3]);
-    if (a !== b && (size[a] < minSize || size[b] < minSize)) join(a, b);
-  }
-  const rid = new Int32Array(n), map = new Int32Array(n).fill(-1); let count = 0;
-  for (let i = 0; i < n; i++) { const r = find(i); if (map[r] < 0) map[r] = count++; rid[i] = map[r]; }
-  return { rid, count };
-}
-// Each pixel joins the shape most common among its 3×3 neighbors, which rounds off jagged shape edges.
-function smoothEdges(rid, w, h) {
-  const out = new Int32Array(rid.length), v = new Int32Array(9);
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    let m = 0;
-    for (let dy = -1; dy <= 1; dy++) { const yy = y + dy < 0 ? 0 : y + dy >= h ? h - 1 : y + dy;
-      for (let dx = -1; dx <= 1; dx++) { const xx = x + dx < 0 ? 0 : x + dx >= w ? w - 1 : x + dx; v[m++] = rid[yy * w + xx]; } }
-    let best = v[4], bc = 0;
-    for (let i = 0; i < 9; i++) { let c = 0; for (let j = 0; j < 9; j++) if (v[j] === v[i]) c++; if (c > bc) { bc = c; best = v[i]; } }
-    out[y * w + x] = best;
-  }
-  return out;
-}
-// Shapes for a Simplify level. 0 = the photo itself; each level up smooths a little more and grows the shapes.
-function getRegions(a) {
-  if (cache.reg && cache.reg.a === a) return cache.reg;
-  const { w, h, n } = img;
-  if (a === 0) { cache.reg = { a, identity: true, lab: getBlur(0).lab }; return cache.reg; }
-  const r = Math.max(1, Math.round(a * 0.5 * img.scale)), passes = a >= 6 ? 2 : 1;
-  let rgba = img.rgba;
-  for (let p = 0; p < passes; p++) rgba = kuwahara(rgba, w, h, r);
-  const sm = labArray(rgba, n);
-  const K = 45 * Math.pow(1.5, a - 1);
-  const minSize = Math.round(4 * img.scale * img.scale + n * Math.pow(a / 10, 2) * 0.004);
-  let { rid, count } = segment(sm, w, h, K, minSize);
-  for (let p = 0, np = a >= 3 ? (a >= 7 ? 2 : 1) : 0; p < np; p++) rid = smoothEdges(rid, w, h);
-  // each shape takes its own average color
-  const sums = new Float64Array(count * 3), cnt = new Uint32Array(count);
-  for (let i = 0; i < n; i++) { const c = rid[i]; cnt[c]++; sums[c * 3] += sm[i * 3]; sums[c * 3 + 1] += sm[i * 3 + 1]; sums[c * 3 + 2] += sm[i * 3 + 2]; }
-  const rlab = new Float32Array(count * 3), rrgb = new Uint8Array(count * 3);
-  for (let c = 0; c < count; c++) {
-    if (!cnt[c]) continue; // a shape the edge smoothing absorbed
-    rlab[c * 3] =sums[c * 3] / cnt[c]; rlab[c * 3 + 1] = sums[c * 3 + 1] / cnt[c]; rlab[c * 3 + 2] = sums[c * 3 + 2] / cnt[c];
-    rrgb.set(labToRgb(rlab[c * 3], rlab[c * 3 + 1], rlab[c * 3 + 2]), c * 3);
-  }
-  const lab = new Float32Array(n * 3);
-  for (let i = 0; i < n; i++) { const c = rid[i] * 3; lab[i * 3] = rlab[c]; lab[i * 3 + 1] = rlab[c + 1]; lab[i * 3 + 2] = rlab[c + 2]; }
-  cache.reg = { a, identity: false, rid, count, rrgb, lab };
-  return cache.reg;
+function getTree() { return cache.tree || (cache.tree = buildTree(getBlur(1).lab, img.w, img.h)); }
+function shapesFor(v) { const top = Math.min(getTree().n0, 2400); return Math.max(4, Math.round(top * Math.pow(4 / top, (v - 1) / 99))); }
+function getLevel(T) {
+  const tr = getTree(), n0 = tr.n0; T = Math.max(1, Math.min(T, n0));
+  if (cache.level && cache.level.T === T) return cache.level;
+  const par = new Int32Array(n0), M = tr.merges;
+  for (let i = 0; i < n0; i++) par[i] = i;
+  for (let t = 0, steps = Math.min(tr.steps, n0 - T); t < steps; t++) par[M[t * 2 + 1]] = M[t * 2];
+  const find = i => { let r = i; while (par[r] !== r) r = par[r]; while (par[i] !== r) { const nx = par[i]; par[i] = r; i = nx; } return r; };
+  const spShape = new Int32Array(n0), map = new Int32Array(n0).fill(-1); let count = 0;
+  for (let i = 0; i < n0; i++) { const r = find(i); if (map[r] < 0) map[r] = count++; spShape[i] = map[r]; }
+  const mean = new Float64Array(count * 3), area = new Float64Array(count);
+  for (let i = 0; i < n0; i++) { const s = spShape[i]; area[s] += tr.size[i]; mean[s * 3] += tr.sums[i * 3]; mean[s * 3 + 1] += tr.sums[i * 3 + 1]; mean[s * 3 + 2] += tr.sums[i * 3 + 2]; }
+  const rgb = new Uint8Array(count * 3);
+  for (let s = 0; s < count; s++) { mean[s * 3] /= area[s]; mean[s * 3 + 1] /= area[s]; mean[s * 3 + 2] /= area[s]; rgb.set(labToRgb(mean[s * 3], mean[s * 3 + 1], mean[s * 3 + 2]), s * 3); }
+  cache.level = { T, count, rgb, pix: refine(tr, spShape, mean, getBlur(2).lab), pal: makePalette(mean, area, count, 11) };
+  return cache.level;
 }
 const ALL_COLORS = 17;
+// Everything a renderer needs, as lookup tables keyed by a per-pixel id (a shape, or a color cluster at level 0).
+function getPalette() {
+  const B = getColorBase(), cut = cutPalette(B, state.colors.k), key = cut.k + '|' + state.colors.flat;
+  if (cache.colView && cache.colView.key === key && cache.colView.B === B) return cache.colView;
+  const col = new Uint8Array(B.c * 3);
+  for (let j = 0; j < B.c; j++) col.set(cut.rgb.subarray(cut.gmap[j] * 3, cut.gmap[j] * 3 + 3), j * 3);
+  cache.colView = { key, B, idx: B.asg, col, grp: cut.gmap, ol: cut.gmap, photo: !state.colors.flat, list: cut.list };
+  return cache.colView;
+}
 function getSimplify() {
-  const { amount: a, colors } = state.simplify, key = a + '|' + colors;
-  if (cache.simp && cache.simp.key === key) return cache.simp;
-  const R = getRegions(a), n = img.n, limited = colors < ALL_COLORS, k = limited ? colors : 8;
-  // the palette: the colors you'd mix. With a color limit, every shape is repainted in its nearest one.
-  const C = kmeans(R.lab, n, k, 11);
-  const labels = assign(R.lab, n, C, k);
-  const P = finishPalette(C, k, labels, n);
-  P.limited = limited; P.identity = R.identity; P.rid = R.rid; P.rrgb = R.rrgb;
-  P.outline = limited || R.identity ? labels : R.rid;
-  cache.simp = Object.assign(P, { key });
+  const { amount: a, colors } = state.simplify, limited = colors < ALL_COLORS, want = limited ? colors : 8, key = a + '|' + colors;
+  if (cache.simp && cache.simp.key === key && cache.simp.tree === cache.tree && cache.simp.B === cache.cbase) return cache.simp;
+  let S;
+  if (a === 0) {
+    // level 0 is the photo itself; with a color limit it is the photo painted in that many colors
+    const B = getColorBase(), cut = cutPalette(B, want), col = new Uint8Array(B.c * 3);
+    for (let j = 0; j < B.c; j++) col.set(cut.rgb.subarray(cut.gmap[j] * 3, cut.gmap[j] * 3 + 3), j * 3);
+    S = { idx: B.asg, col, grp: cut.gmap, ol: cut.gmap, photo: !limited, list: cut.list, shapes: 0 };
+  } else {
+    const Lv = getLevel(shapesFor(a)), cut = cutPalette(Lv.pal, want), m = Lv.count;
+    const col = new Uint8Array(m * 3), grp = new Int32Array(m), ol = new Int32Array(m);
+    for (let s = 0; s < m; s++) {
+      const g = cut.gmap[Lv.pal.asg[s]];
+      grp[s] = g; ol[s] = limited ? g : s;
+      col.set(limited ? cut.rgb.subarray(g * 3, g * 3 + 3) : Lv.rgb.subarray(s * 3, s * 3 + 3), s * 3);
+    }
+    S = { idx: Lv.pix, col, grp, ol, photo: false, list: cut.list, shapes: m };
+  }
+  cache.simp = Object.assign(S, { key, tree: cache.tree, B: cache.cbase });
   return cache.simp;
+}
+// Blur tab: a gaussian in linear light, like an out-of-focus lens, so highlights glow instead of turning to mud.
+function getSoft() {
+  const w = img.w, h = img.h, n = img.n, sigma = state.blur.amount / 100 * 0.035 * Math.max(w, h), key = Math.round(sigma * 4);
+  if (cache.soft && cache.soft.key === key) return cache.soft;
+  if (!cache.lin) {
+    const lin = new Float32Array(n * 3), s = img.rgba;
+    for (let i = 0, p = 0, q = 0; i < n; i++, p += 4, q += 3) { lin[q] = LIN[s[p]]; lin[q + 1] = LIN[s[p + 1]]; lin[q + 2] = LIN[s[p + 2]]; }
+    cache.lin = { lin, a: new Float32Array(n * 3), b: new Float32Array(n * 3), rgba: new Uint8ClampedArray(n * 4), Y: new Uint8Array(n) };
+  }
+  const W = cache.lin; let a = W.lin;
+  if (sigma >= 0.6) {
+    // big blurs run on a smaller copy: nothing that fine survives the blur anyway, and it keeps the slider smooth on a phone
+    const f = sigma >= 3 ? Math.min(8, Math.floor(sigma / 1.5)) : 1, sw = Math.ceil(w / f), sh = Math.ceil(h / f);
+    const r = Math.max(1, Math.round((Math.sqrt(4 * (sigma / f) * (sigma / f) + 1) - 1) / 2));
+    let A = W.a, B = W.b;
+    if (f > 1) {
+      A = new Float32Array(sw * sh * 3); B = new Float32Array(sw * sh * 3);
+      const cnt = new Float32Array(sw * sh), lin = W.lin;
+      for (let y = 0, i = 0; y < h; y++) { const row = ((y / f) | 0) * sw; for (let x = 0; x < w; x++, i++) { const c = row + ((x / f) | 0), q = c * 3; cnt[c]++; A[q] += lin[i * 3]; A[q + 1] += lin[i * 3 + 1]; A[q + 2] += lin[i * 3 + 2]; } }
+      for (let c = 0; c < sw * sh; c++) { const k = 1 / cnt[c]; A[c * 3] *= k; A[c * 3 + 1] *= k; A[c * 3 + 2] *= k; }
+    } else A.set(W.lin);
+    for (let p = 0; p < 3; p++) { boxF(A, B, sw, sh, r, true); boxF(B, A, sw, sh, r, false); }
+    a = A;
+    if (f > 1) {
+      // bilinear back up to full size
+      a = W.a;
+      const X0 = new Int32Array(w), X1 = new Int32Array(w), TX = new Float32Array(w);
+      for (let x = 0; x < w; x++) { const fx = Math.max(0, (x + 0.5) / f - 0.5), x0 = Math.min(sw - 1, fx | 0); X0[x] = x0 * 3; X1[x] = Math.min(sw - 1, x0 + 1) * 3; TX[x] = Math.min(1, fx - x0); }
+      for (let y = 0, q = 0; y < h; y++) {
+        const fy = Math.max(0, (y + 0.5) / f - 0.5), y0 = Math.min(sh - 1, fy | 0), ty = Math.min(1, fy - y0), r0 = y0 * sw * 3, r1 = Math.min(sh - 1, y0 + 1) * sw * 3;
+        for (let x = 0; x < w; x++, q += 3) {
+          const tx = TX[x], i00 = r0 + X0[x], i01 = r0 + X1[x], i10 = r1 + X0[x], i11 = r1 + X1[x];
+          for (let c = 0; c < 3; c++) {
+            const top = A[i00 + c] + (A[i01 + c] - A[i00 + c]) * tx, bot = A[i10 + c] + (A[i11 + c] - A[i10 + c]) * tx;
+            a[q + c] = top + (bot - top) * ty;
+          }
+        }
+      }
+    }
+  }
+  const out = W.rgba, Y = W.Y;
+  for (let i = 0, p = 0, q = 0; i < n; i++, p += 4, q += 3) {
+    const R = a[q], G = a[q + 1], B = a[q + 2];
+    out[p] = G12[(R * 4095 + 0.5) | 0]; out[p + 1] = G12[(G * 4095 + 0.5) | 0]; out[p + 2] = G12[(B * 4095 + 0.5) | 0]; out[p + 3] = 255;
+    Y[i] = G12[((0.2126 * R + 0.7152 * G + 0.0722 * B) * 4095 + 0.5) | 0];
+  }
+  cache.soft = { key, rgba: out, Y };
+  return cache.soft;
 }
 function getValueBase() {
   const r = Math.round(state.values.smooth * 0.8 * img.scale);
@@ -654,34 +916,39 @@ function getTempBase() {
 /* ---------- renderers ---------- */
 function fade(d, p, r, g, b) { const v = 150 + (r * 0.3 + g * 0.59 + b * 0.11) * 0.33; d[p] = d[p + 1] = d[p + 2] = v; }
 
-function renderColors() {
-  const P = getPalette(), d = outData.data, s = img.rgba, L = P.labels, c = P.crgb;
-  const iso = ui.isolateColors, flat = state.colors.flat;
-  for (let i = 0, p = 0; i < img.n; i++, p += 4) {
-    const l = L[i];
-    const r = flat ? c[l * 3] : s[p], g = flat ? c[l * 3 + 1] : s[p + 1], b = flat ? c[l * 3 + 2] : s[p + 2];
-    if (iso >= 0 && l !== iso) fade(d, p, r, g, b); else { d[p] = r; d[p + 1] = g; d[p + 2] = b; }
+function paintIds(S, iso, edges) {
+  const d = outData.data, s = img.rgba, idx = S.idx, col = S.col, grp = S.grp, ol = S.ol, w = img.w, h = img.h, photo = S.photo;
+  for (let y = 0, i = 0; y < h; y++) for (let x = 0; x < w; x++, i++) {
+    const p = i * 4, id = idx[i];
+    let r, g, b;
+    if (photo) { r = s[p]; g = s[p + 1]; b = s[p + 2]; } else { const ci = id * 3; r = col[ci]; g = col[ci + 1]; b = col[ci + 2]; }
+    if (iso >= 0 && grp[id] !== iso) fade(d, p, r, g, b); else { d[p] = r; d[p + 1] = g; d[p + 2] = b; }
+    if (edges) { const o = ol[id]; if ((x < w - 1 && ol[idx[i + 1]] !== o) || (y < h - 1 && ol[idx[i + w]] !== o) || (x > 0 && ol[idx[i - 1]] !== o) || (y > 0 && ol[idx[i - w]] !== o)) { d[p] = d[p + 1] = d[p + 2] = 24; } }
     d[p + 3] = 255;
   }
-  const list = P.list.slice().sort(state.colors.sort === 'value' ? (x, y) => x.L - y.L : (x, y) => y.share - x.share);
-  drawSwatches($('#colSw'), $('#colBar'), list, iso, 'colors');
+}
+const SORTS = {
+  amount: (x, y) => y.share - x.share,
+  value: (x, y) => x.L - y.L,
+  hue: (x, y) => { const cx = Math.hypot(x.a, x.b) < 6, cy = Math.hypot(y.a, y.b) < 6; if (cx !== cy) return cx ? 1 : -1; if (cx) return x.L - y.L;
+    const hx = (Math.atan2(x.b, x.a) * 180 / Math.PI + 340) % 360, hy = (Math.atan2(y.b, y.a) * 180 / Math.PI + 340) % 360; return hx - hy; }
+};
+function renderColors() {
+  const S = getPalette();
+  paintIds(S, ui.isolateColors, false);
+  drawSwatches($('#colSw'), $('#colBar'), S.list.slice().sort(SORTS[state.colors.sort]), ui.isolateColors, 'colors', S.key + state.colors.sort);
 }
 function renderSimplify() {
-  const P = getSimplify(), d = outData.data, L = P.labels, O = P.outline, w = img.w, h = img.h, s = img.rgba;
-  // color source: the palette when colors are limited, the photo itself at 0, otherwise each shape's own average
-  const c = P.limited ? P.crgb : P.rrgb, ids = P.limited ? L : P.rid, photo = !P.limited && P.identity;
-  const iso = ui.isolateSimplify, edges = state.simplify.edges;
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const i = y * w + x, p = i * 4, l = L[i], o = O[i];
-    let r, g, b;
-    if (photo) { r = s[p]; g = s[p + 1]; b = s[p + 2]; }
-    else { const ci = ids[i] * 3; r = c[ci]; g = c[ci + 1]; b = c[ci + 2]; }
-    if (iso >= 0 && l !== iso) fade(d, p, r, g, b); else { d[p] = r; d[p + 1] = g; d[p + 2] = b; }
-    if (edges && ((x < w - 1 && O[i + 1] !== o) || (y < h - 1 && O[i + w] !== o) || (x > 0 && O[i - 1] !== o) || (y > 0 && O[i - w] !== o))) { d[p] = d[p + 1] = d[p + 2] = 24; }
-    d[p + 3] = 255;
-  }
-  const list = P.list.slice().sort((x, y) => y.share - x.share);
-  drawSwatches($('#simSw'), $('#simBar'), list, iso, 'simplify');
+  const S = getSimplify();
+  paintIds(S, ui.isolateSimplify, state.simplify.edges);
+  const a = state.simplify.amount;
+  $('#simAOut').textContent = a === 0 ? 'Off · original photo' : (a / 10).toFixed(1) + ' · ' + S.shapes + ' shapes';
+  drawSwatches($('#simSw'), $('#simBar'), S.list.slice().sort(SORTS.amount), ui.isolateSimplify, 'simplify', S.key);
+}
+function renderBlur() {
+  const B = getSoft(), d = outData.data;
+  if (state.blur.bw) { const Y = B.Y; for (let i = 0, p = 0; i < img.n; i++, p += 4) { d[p] = d[p + 1] = d[p + 2] = Y[i]; d[p + 3] = 255; } }
+  else d.set(B.rgba);
 }
 function valueSplits(V) {
   const v = state.values, n = v.steps;
@@ -707,7 +974,7 @@ function renderValues() {
     d[p] = d[p + 1] = d[p + 2] = tone[band]; d[p + 3] = 255;
   }
   const names = n === 2 ? ['Dark', 'Light'] : null;
-  $('#valSw').innerHTML = disp.map((L, i) => `<div class="sw"><div class="chip" style="background:rgb(${tone[i]},${tone[i]},${tone[i]})"></div><div class="meta"><b>${names ? names[i] : 'Value ' + (L / 10).toFixed(1)}</b><br>${Math.round(counts[i] / img.n * 100)}% of picture</div></div>`).join('');
+  $('#valSw').innerHTML = disp.map((L, i) => `<div class="sw"><span class="chip" style="background:rgb(${tone[i]},${tone[i]},${tone[i]})"></span><span class="meta"><b>${names ? names[i] : 'Value ' + (L / 10).toFixed(1)}</b>${Math.round(counts[i] / img.n * 100)}% of picture</span></div>`).join('');
   if (n === 2) {
     const t = v.thr == null ? V.otsu : v.thr, thr = $('#valThr');
     if (document.activeElement !== thr) thr.value = t;
@@ -742,76 +1009,181 @@ function renderTemp() {
   spans[0].style.flex = pw + ' 0 0'; spans[1].style.flex = pn + ' 0 0'; spans[2].style.flex = pc + ' 0 0';
   $('#tempLegend').innerHTML = `<span><b>${Math.round(pw)}%</b> warm</span><span><b>${Math.round(pn)}%</b> neutral</span><span><b>${Math.round(pc)}%</b> cool</span>`;
 }
-function drawSwatches(grid, bar, list, iso, which) {
-  const near = nearestIdx(which);
+const lists = { colors: null, simplify: null };
+// Swatches are only rebuilt when the palette or the isolated color changes, never while picking.
+function drawSwatches(grid, bar, list, iso, which, key) {
+  lists[which] = list;
+  const k = key + '|' + iso;
+  if (grid.dataset.k === k) { updateNear(); return; }
+  grid.dataset.k = k;
   bar.innerHTML = list.map(e => `<span style="flex:${e.share} 0 0;background:rgb(${e.rgb})"></span>`).join('');
   grid.innerHTML = list.map(e => {
-    const h = hex(...e.rgb);
-    return `<button type="button" class="sw${near === e.idx ? ' near' : ''}" data-idx="${e.idx}" data-which="${which}" aria-pressed="${iso === e.idx}" aria-label="${h}, ${Math.round(e.share * 100)} percent">
-      <div class="chip" style="background:${h}"></div>
-      <div class="meta"><b>${h}</b><br>${Math.max(1, Math.round(e.share * 100))}% · V ${(e.L / 10).toFixed(1)}</div></button>`;
+    const h = hex(...e.rgb), g = grayOf(e.L);
+    return `<button type="button" class="sw" data-idx="${e.idx}" data-which="${which}" aria-pressed="${iso === e.idx}" aria-label="${colorName(e.L, e.a, e.b)}, ${h}, ${Math.round(e.share * 100)} percent">
+      <span class="chip" style="background:${h}"><span class="vdot" style="background:rgb(${g},${g},${g})"></span></span>
+      <span class="meta"><b>${colorName(e.L, e.a, e.b)}</b>${h}<br>${Math.max(1, Math.round(e.share * 100))}% · V ${(e.L / 10).toFixed(1)}</span></button>`;
   }).join('');
+  updateNear();
 }
 
 /* ---------- render loop ---------- */
-let raf = 0;
+let raf = 0, working = false;
 function schedule() { if (!raf) raf = requestAnimationFrame(() => { raf = 0; render(); }); }
+const RENDER = { colors: renderColors, simplify: renderSimplify, blur: renderBlur, values: renderValues, temp: renderTemp };
+function pendingWork() {
+  const m = state.mode;
+  if (m === 'colors' || (m === 'simplify' && state.simplify.amount === 0)) return cache.cbase ? null : getColorBase;
+  if (m === 'simplify') return cache.tree ? null : getTree;
+  return null;
+}
 function render() {
   if (!img) return;
   if (ui.original) { vctx.putImageData(img.data, 0, 0); return; }
-  ({ colors: renderColors, simplify: renderSimplify, values: renderValues, temp: renderTemp })[state.mode]();
+  // the first look at a photo in Colors or Simplify takes a moment; show the photo with a note meanwhile
+  const job = pendingWork();
+  if (job) {
+    if (!working) {
+      working = true; setBadge('Working…'); vctx.putImageData(img.data, 0, 0);
+      setTimeout(() => { try { job(); } finally { working = false; setBadge(); schedule(); warmUp(); } }, 30);
+    }
+    return;
+  }
+  RENDER[state.mode]();
   vctx.putImageData(outData, 0, 0);
   renderReadout();
   if (!$('#trace').hidden) drawTrace();
 }
+// Get the slow analysis done while the photo is just being looked at, so tab switches are instant.
+let warmTimer = 0;
+function warmUp() {
+  clearTimeout(warmTimer);
+  warmTimer = setTimeout(() => {
+    if (!img || working) return;
+    if (!cache.cbase) { getColorBase(); warmUp(); return; }
+    if (!cache.tree) getTree();
+  }, 700);
+}
 
-/* ---------- color readout ---------- */
+/* ---------- color picker ---------- */
 function samplePick() {
-  if (!ui.pick) return null;
-  const x0 = Math.floor(ui.pick.fx * img.w), y0 = Math.floor(ui.pick.fy * img.h), s = img.rgba;
+  if (ui.fixed) return ui.fixed;
+  if (!ui.pick || !img) return null;
+  const s = state.pick.from === 'view' && !ui.original ? outData.data : img.rgba, half = (+state.pick.size - 1) >> 1;
+  const x0 = Math.floor(ui.pick.fx * img.w), y0 = Math.floor(ui.pick.fy * img.h);
   let r = 0, g = 0, b = 0, c = 0;
-  for (let y = y0 - 2; y <= y0 + 2; y++) for (let x = x0 - 2; x <= x0 + 2; x++) {
+  // average in linear light so a mix of light and dark pixels reads like paint would mix optically
+  for (let y = y0 - half; y <= y0 + half; y++) for (let x = x0 - half; x <= x0 + half; x++) {
     if (x < 0 || y < 0 || x >= img.w || y >= img.h) continue;
-    const p = (y * img.w + x) * 4; r += s[p]; g += s[p + 1]; b += s[p + 2]; c++;
+    const p = (y * img.w + x) * 4; r += LIN[s[p]]; g += LIN[s[p + 1]]; b += LIN[s[p + 2]]; c++;
   }
-  return [Math.round(r / c), Math.round(g / c), Math.round(b / c)];
+  return [G12[(r / c * 4095 + 0.5) | 0], G12[(g / c * 4095 + 0.5) | 0], G12[(b / c * 4095 + 0.5) | 0]];
 }
 function nearestIdx(which) {
-  const rgb = samplePick(); if (!rgb) return -1;
-  const P = which === 'colors' ? cache.pal : cache.simp; if (!P) return -1;
+  const rgb = samplePick(), list = lists[which]; if (!rgb || !list) return -1;
   const [L, a, b] = rgbToLab(...rgb); let best = -1, bd = Infinity;
-  for (let c = 0; c < P.k; c++) { const x = L - P.C[c * 3], y = a - P.C[c * 3 + 1], z = b - P.C[c * 3 + 2], d = x * x + y * y + z * z; if (d < bd) { bd = d; best = c; } }
+  for (const e of list) { const x = L - e.L, y = a - e.a, z = b - e.b, d = x * x + y * y + z * z; if (d < bd) { bd = d; best = e.idx; } }
   return best;
 }
-function renderReadout() {
-  const el = $('#readout'), rgb = samplePick();
-  if (!rgb) {
-    el.innerHTML = `<p class="eyebrow">Color picker</p><p class="hint">Tap anywhere on the photo to read its color, value and temperature.${img && img.sample ? ' This is a sample landscape. Tap Open photo to study one of your own.' : ''}</p>`;
-    return;
+function updateNear() {
+  for (const which of ['colors', 'simplify']) {
+    const near = state.mode === which ? nearestIdx(which) : -1;
+    document.querySelectorAll(`#${which === 'colors' ? 'colSw' : 'simSw'} .sw`).forEach(b => b.classList.toggle('near', +b.dataset.idx === near));
   }
-  const [L, a, b] = rgbToLab(...rgb), [hh, ss, ll] = rgbToHsl(...rgb), h = hex(...rgb);
+}
+const vscale = $('#vscale');
+for (let v = 0; v <= 10; v++) { const g = grayOf(v * 10), i = document.createElement('i'); i.style.background = `rgb(${g},${g},${g})`; vscale.insertBefore(i, $('#pkTick')); }
+function renderReadout() {
+  const rgb = samplePick(), out = $('#pickOut');
+  $('#pickHint').hidden = !!rgb; out.hidden = !rgb; $('#pkSave').disabled = !rgb;
+  if (!rgb) {
+    $('#pickHint').textContent = 'Touch the photo and drag to read any color: a magnifier shows exactly what is being sampled.' + (img && img.sample ? ' This is a sample landscape. Tap Open photo to study one of your own.' : '');
+    renderMine(); return;
+  }
+  const [L, a, b] = rgbToLab(...rgb), h = hex(...rgb), [H, S, B] = rgbToHsb(...rgb), g = grayOf(L);
   const chroma = Math.hypot(a, b), hue = (Math.atan2(b, a) * 180 / Math.PI + 360) % 360;
   let t = warmth(a, b);
   if (state.temp.ref === 'average' && cache.temp) t -= cache.temp.mean;
   const tw = Math.abs(t) < 6 ? 'Neutral' : (Math.abs(t) < 18 ? 'Slightly ' : '') + (t > 0 ? 'warm' : 'cool');
-  el.innerHTML = `<p class="eyebrow">Sampled color</p>
-    <div class="readout"><div class="big" style="background:${h}"></div>
-    <dl>
-      <dt>Hex</dt><dd>${h}<button type="button" class="copy" data-copy="${h}">Copy</button></dd>
-      <dt>RGB</dt><dd>${rgb.join(', ')}</dd>
-      <dt>HSL</dt><dd>${hh}°, ${ss}%, ${ll}%</dd>
-      <dt>Lab</dt><dd>${L.toFixed(0)}, ${a.toFixed(0)}, ${b.toFixed(0)}</dd>
-      <dt>Value</dt><dd>${(L / 10).toFixed(1)} of 10</dd>
-      <dt>Chroma</dt><dd>${chroma.toFixed(0)} at ${hue.toFixed(0)}°</dd>
-      <dt>Temp</dt><dd>${tw[0].toUpperCase() + tw.slice(1)}${state.temp.ref === 'average' ? ' vs. photo' : ''}</dd>
-    </dl></div>`;
+  const chip = $('#pkChip'), gray = $('#pkGray');
+  chip.style.background = h; gray.style.background = `rgb(${g},${g},${g})`; gray.style.color = L > 55 ? '#111' : '#f4f4f4';
+  $('#pkName').textContent = colorName(L, a, b);
+  $('#pkTick').style.left = (Math.max(0, Math.min(100, L)) / 100 * (10 / 11) * 100 + 100 / 22) + '%';
+  $('#pkHex').textContent = h;
+  $('#pkRgb').textContent = rgb.join(', ');
+  $('#pkHsb').textContent = `${H}°, ${S}%, ${B}%`;
+  $('#pkVal').textContent = `${(L / 10).toFixed(1)} of 10`;
+  $('#pkChroma').textContent = `${chroma.toFixed(0)} · ${chroma < 6 ? 'neutral' : chroma < 15 ? 'very low' : chroma < 30 ? 'low' : chroma < 52 ? 'medium' : chroma < 72 ? 'high' : 'very high'}`;
+  $('#pkTemp').textContent = tw[0].toUpperCase() + tw.slice(1) + (state.temp.ref === 'average' ? ' vs. photo' : '');
+  $('#pkSave').textContent = mine.includes(h) ? 'Remove from my colors' : 'Save to my colors';
+  renderMine(h);
 }
+let mineKey = '';
+function renderMine(cur) {
+  const k = mine.join() + '|' + (ui.fixed ? cur : '');
+  if (k === mineKey) return; mineKey = k;
+  $('#mineWrap').hidden = !mine.length;
+  $('#mine').innerHTML = mine.map(h => `<button type="button" data-mine="${h}" style="background:${h}" aria-label="${h}" aria-pressed="${ui.fixed && h === cur}"></button>`).join('');
+}
+const loupe = $('#loupe'), lctx = loupe.getContext('2d'), LZ = 15; // the loupe shows 15×15 photo pixels
+function drawLoupe() {
+  if (!ui.pick) return;
+  const src = state.pick.from === 'view' ? view : img.canvas;
+  const cx = Math.floor(ui.pick.fx * img.w), cy = Math.floor(ui.pick.fy * img.h), S = loupe.width, cell = S / LZ;
+  lctx.imageSmoothingEnabled = false;
+  lctx.fillStyle = '#777'; lctx.fillRect(0, 0, S, S);
+  // clip the source rect by hand: Safari draws nothing when it runs off the image
+  const sx = cx - (LZ >> 1), sy = cy - (LZ >> 1), x0 = Math.max(0, sx), y0 = Math.max(0, sy), x1 = Math.min(img.w, sx + LZ), y1 = Math.min(img.h, sy + LZ);
+  lctx.drawImage(src, x0, y0, x1 - x0, y1 - y0, (x0 - sx) * cell, (y0 - sy) * cell, (x1 - x0) * cell, (y1 - y0) * cell);
+  const size = Math.min(LZ, +state.pick.size), o = (S - size * cell) / 2;
+  lctx.lineWidth = 3; lctx.strokeStyle = 'rgba(0,0,0,.8)'; lctx.strokeRect(o, o, size * cell, size * cell);
+  lctx.lineWidth = 1.5; lctx.strokeStyle = '#fff'; lctx.strokeRect(o, o, size * cell, size * cell);
+  const rgb = samplePick(); if (rgb) loupe.style.borderColor = hex(...rgb);
+}
+let pickRaf = 0, picking = -1;
+function movePick(e) {
+  const r = view.getBoundingClientRect();
+  ui.fixed = null;
+  ui.pick = { fx: Math.min(0.999, Math.max(0, (e.clientX - r.left) / r.width)), fy: Math.min(0.999, Math.max(0, (e.clientY - r.top) / r.height)) };
+  const m = $('#marker'); m.hidden = false; m.style.left = ui.pick.fx * 100 + '%'; m.style.top = ui.pick.fy * 100 + '%';
+  loupe.style.left = ui.pick.fx * 100 + '%'; loupe.style.top = ui.pick.fy * 100 + '%';
+  // above the finger when there is room on screen, otherwise beside it (never below, where the hand is)
+  const side = e.clientY < 175 ? (ui.pick.fx < 0.5 ? 'right' : 'left') : '';
+  loupe.classList.toggle('right', side === 'right'); loupe.classList.toggle('left', side === 'left');
+  if (!pickRaf) pickRaf = requestAnimationFrame(() => { pickRaf = 0; drawLoupe(); renderReadout(); updateNear(); });
+}
+view.addEventListener('pointerdown', e => {
+  if (!img || picking >= 0) return;
+  e.preventDefault(); picking = e.pointerId;
+  try { view.setPointerCapture(e.pointerId); } catch (err) {}
+  loupe.hidden = false; movePick(e);
+});
+view.addEventListener('pointermove', e => { if (e.pointerId === picking) movePick(e); });
+const endPick = e => { if (e.pointerId !== picking) return; picking = -1; loupe.hidden = true; };
+['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => view.addEventListener(t, endPick));
+view.addEventListener('contextmenu', e => e.preventDefault());
+$('#pkSave').addEventListener('click', () => {
+  const rgb = samplePick(); if (!rgb) return;
+  const h = hex(...rgb), i = mine.indexOf(h);
+  if (i >= 0) { mine.splice(i, 1); if (ui.fixed) { ui.fixed = null; $('#marker').hidden = !ui.pick; } toast('Removed ' + h); }
+  else { mine.unshift(h); mine = mine.slice(0, 40); toast('Saved ' + h); }
+  saveMine(); renderReadout(); updateNear();
+});
+$('#mineClear').addEventListener('click', () => {
+  if (!confirm('Remove all of your saved colors?')) return;
+  mine = []; ui.fixed = null; $('#marker').hidden = !ui.pick; saveMine(); renderReadout();
+});
+$('#pkCopy').addEventListener('click', () => {
+  const text = $('#pkHex').textContent;
+  try { navigator.clipboard.writeText(text).then(() => toast('Copied ' + text), () => toast(text + ' (copy is blocked here)')); }
+  catch (err) { toast(text + ' (copy is blocked here)'); }
+});
 
 /* ---------- controls ---------- */
 const getK = key => key.split('.').reduce((o, k) => o[k], state);
 const setK = (key, v) => { const [a, b] = key.split('.'); state[a][b] = v; };
 const FMT = {
-  'colors.k': v => v, 'simplify.amount': v => v === 0 ? 'Off · original photo' : v + ' of 10', 'simplify.colors': v => v >= ALL_COLORS ? 'No limit' : v,
+  'colors.k': v => v, 'simplify.amount': v => v === 0 ? 'Off · original photo' : (v / 10).toFixed(1), 'simplify.colors': v => v >= ALL_COLORS ? 'No limit' : v,
+  'blur.amount': v => v === 0 ? 'Off' : (v / 10).toFixed(1),
   'values.steps': v => v === 2 ? '2 · notan' : v, 'values.shift': v => (v > 0 ? '+' : '') + v,
   'values.smooth': v => v === 0 ? 'Off' : v, 'temp.sens': v => v, 'trace.opacity': v => v + '%'
 };
@@ -822,7 +1194,7 @@ function syncControls() {
   });
   document.querySelectorAll('input[type=checkbox][data-key]').forEach(el => { el.checked = !!getK(el.dataset.key); });
   document.querySelectorAll('.seg[data-key]').forEach(seg => {
-    const v = getK(seg.dataset.key);
+    const v = String(getK(seg.dataset.key));
     seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.val === v)));
   });
   document.querySelectorAll('.tabs button').forEach(b => {
@@ -838,7 +1210,9 @@ function changed(key) {
   if (key === 'colors.k') ui.isolateColors = -1;
   if (key === 'simplify.colors' || key === 'simplify.amount') ui.isolateSimplify = -1;
   if (key && key.startsWith('trace.')) { applyTraceSettings(key); }
-  syncControls(); saveSettings(); schedule();
+  syncControls(); saveSettings();
+  if (key && key.startsWith('pick.')) { renderReadout(); updateNear(); return; }
+  schedule();
 }
 document.addEventListener('input', e => {
   const el = e.target; if (!el.dataset || !el.dataset.key) return;
@@ -854,23 +1228,16 @@ document.addEventListener('click', e => {
     const idx = +sw.dataset.idx, k = sw.dataset.which === 'colors' ? 'isolateColors' : 'isolateSimplify';
     ui[k] = ui[k] === idx ? -1 : idx; schedule(); return;
   }
-  const cp = e.target.closest('[data-copy]');
-  if (cp) {
-    const text = cp.dataset.copy;
-    try { navigator.clipboard.writeText(text).then(() => toast('Copied ' + text), () => toast(text + ' (copy is blocked here)')); }
-    catch (err) { toast(text + ' (copy is blocked here)'); }
+  const mc = e.target.closest('[data-mine]');
+  if (mc) {
+    const h = mc.dataset.mine;
+    if (ui.fixed && hex(...ui.fixed) === h) { ui.fixed = null; $('#marker').hidden = !ui.pick; }
+    else { ui.fixed = unhex(h); $('#marker').hidden = true; }
+    renderReadout(); updateNear();
   }
 });
 $('#valThr').addEventListener('input', e => { state.values.thr = +e.target.value; saveSettings(); schedule(); });
 $('#thrAuto').addEventListener('click', () => { state.values.thr = null; saveSettings(); schedule(); });
-
-/* tap to sample */
-view.addEventListener('click', e => {
-  const r = view.getBoundingClientRect();
-  ui.pick = { fx: Math.min(0.999, Math.max(0, (e.clientX - r.left) / r.width)), fy: Math.min(0.999, Math.max(0, (e.clientY - r.top) / r.height)) };
-  const m = $('#marker'); m.hidden = false; m.style.left = ui.pick.fx * 100 + '%'; m.style.top = ui.pick.fy * 100 + '%';
-  schedule();
-});
 
 /* hold to compare */
 const cmp = $('#compare');
@@ -899,21 +1266,23 @@ function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = fal
 
 /* ---------- loading photos ---------- */
 function setBadge(text) {
-  const b = $('#badge'); const t = text || (img && img.sample ? 'Sample photo' : '');
+  const b = $('#badge'); const t = text || (working ? 'Working…' : img && img.sample ? 'Sample photo' : '');
   b.hidden = !t; b.textContent = t;
 }
 function setImage(data, sample) {
-  img = { w: data.width, h: data.height, n: data.width * data.height, data, rgba: data.data, sample, scale: Math.max(data.width, data.height) / MAX_EDGE };
+  const c = document.createElement('canvas'); c.width = data.width; c.height = data.height; c.getContext('2d').putImageData(data, 0, 0);
+  img = { w: data.width, h: data.height, n: data.width * data.height, data, rgba: data.data, canvas: c, sample, scale: Math.max(data.width, data.height) / MAX_EDGE };
   view.width = img.w; view.height = img.h; outData = vctx.createImageData(img.w, img.h);
-  cache.blur.clear(); cache.pal = cache.simp = cache.reg = cache.val = cache.temp = null;
-  ui.pick = null; ui.isolateColors = ui.isolateSimplify = -1; $('#marker').hidden = true;
-  setBadge(); sizeFrame(); render();
+  cache.blur.clear(); cache.cbase = cache.tree = cache.level = cache.simp = cache.colView = cache.soft = cache.lin = cache.val = cache.temp = null;
+  ui.pick = null; ui.fixed = null; ui.isolateColors = ui.isolateSimplify = -1; $('#marker').hidden = true;
+  $('#colSw').dataset.k = $('#simSw').dataset.k = '';
+  setBadge(); sizeFrame(); render(); warmUp();
 }
 function imageToData(im) {
   const s = Math.min(1, MAX_EDGE / Math.max(im.naturalWidth, im.naturalHeight));
   const w = Math.max(1, Math.round(im.naturalWidth * s)), h = Math.max(1, Math.round(im.naturalHeight * s));
   const c = document.createElement('canvas'); c.width = w; c.height = h;
-  const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(im, 0, 0, w, h);
+  const g = c.getContext('2d', { willReadFrequently: true }); g.imageSmoothingQuality = 'high'; g.drawImage(im, 0, 0, w, h);
   return { data: g.getImageData(0, 0, w, h), canvas: c };
 }
 $('#file').addEventListener('change', e => {
@@ -922,7 +1291,7 @@ $('#file').addEventListener('change', e => {
   im.onload = () => {
     const { data, canvas } = imageToData(im); URL.revokeObjectURL(url);
     setImage(data, false);
-    try { localStorage.setItem(PHOTO_KEY, canvas.toDataURL('image/jpeg', 0.86)); } catch (err) {}
+    try { localStorage.setItem(PHOTO_KEY, canvas.toDataURL('image/jpeg', 0.9)); } catch (err) {}
   };
   im.onerror = () => { URL.revokeObjectURL(url); toast("That file didn't open. Try a JPEG or PNG photo."); };
   im.src = url; e.target.value = '';
@@ -992,11 +1361,11 @@ const tf = { x: 0, y: 0, s: 1, r: 0, baseW: 0 };
 let stream = null, wakeLock = null, locked = false;
 
 function linesImage() {
-  const P = getSimplify(), L = P.outline, w = img.w, h = img.h, id = new ImageData(w, h), d = id.data;
+  const S = getSimplify(), idx = S.idx, ol = S.ol, w = img.w, h = img.h, id = new ImageData(w, h), d = id.data;
   const edge = new Uint8Array(img.n), r = Math.max(1, Math.round(img.scale * 1.5));
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const i = y * w + x, l = L[i];
-    if ((x < w - 1 && L[i + 1] !== l) || (y < h - 1 && L[i + w] !== l)) edge[i] = 1;
+    const i = y * w + x, l = ol[idx[i]];
+    if ((x < w - 1 && ol[idx[i + 1]] !== l) || (y < h - 1 && ol[idx[i + w]] !== l)) edge[i] = 1;
   }
   // thicken the boundaries so they stay visible through paper at phone size
   d.fill(255);
